@@ -1,0 +1,13 @@
+# Package Information for pkg-config
+
+prefix=@PREFIX@
+exec_prefix=@EXEC_PREFIX@
+libdir=@LIB_INSTALL_DIR@
+includedir=@INCLUDEDIR@
+
+Name: capi-appfw-widget-application
+Description: widget application library
+Version: 1.1
+Requires: aul dlog elementary capi-appfw-app-control capi-appfw-app-common widget_service widget_provider_app widget
+Libs: -L${libdir} -lcapi-appfw-widget-application
+Cflags: -I${includedir} -I${includedir}/appfw
