@@ -41,9 +41,10 @@ void _update_lang(void)
 		char *r = setlocale(LC_ALL, "");
 		if (r == NULL) {
 			r = setlocale(LC_ALL, lang);
-			if (r) {
+
+			if (r)
 				_D("*****appcore setlocale=%s\n", r);
-			}
+
 		}
 		free(lang);
 	} else {
@@ -70,9 +71,10 @@ void _update_region(void)
 		setenv("LC_MEASUREMENT", region, 1);
 		setenv("LC_IDENTIFICATION", region, 1);
 		r = setlocale(LC_ALL, "");
-		if (r != NULL) {
+
+		if (r != NULL)
 			_D("*****appcore setlocale=%s\n", r);
-		}
+
 		free(region);
 	} else {
 		_E("failed to get current region format for set region env");
@@ -118,16 +120,6 @@ static char* __proc_get_cmdline()
 	return strdup(buf);
 }
 
-static void __get_dir_name(char *dirname, int maxlen)
-{
-	const char *path = NULL;
-
-	path = aul_get_app_root_path();
-	snprintf(dirname, maxlen, "%s/res/locale", path);
-	free(path);
-}
-
-
 static int __set_i18n(const char *domain)
 {
 	char *r;
@@ -138,7 +130,7 @@ static int __set_i18n(const char *domain)
 		return -1;
 	}
 
-	__get_dir_name(dirname, PATH_MAX - 1);
+	snprintf(dirname, PATH_MAX, "%s/res/locale", aul_get_app_root_path());
 	_D("locale dir: %s", dirname);
 
 	r = setlocale(LC_ALL, "");
@@ -146,26 +138,24 @@ static int __set_i18n(const char *domain)
 	if (r == NULL) {
 		char *lang = vconf_get_str(VCONFKEY_LANGSET);
 		r = setlocale(LC_ALL, lang);
-		if (r) {
+
+		if (r)
 			_D("*****appcore setlocale=%s\n", r);
-		}
-		if (lang) {
+
+		if (lang)
 			free(lang);
-		}
+
 	}
-	if (r == NULL) {
+	if (r == NULL)
 		_E("appcore: setlocale() error");
-	}
 
 	r = bindtextdomain(domain, dirname);
-	if (r == NULL) {
+	if (r == NULL)
 		_E("appcore: bindtextdomain() error");
-	}
 
 	r = textdomain(domain);
-	if (r == NULL) {
+	if (r == NULL)
 		_E("appcore: textdomain() error");
-	}
 
 	return 0;
 }

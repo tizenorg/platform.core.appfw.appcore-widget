@@ -48,7 +48,7 @@ typedef struct
 } widget_obj_event_info_s;
 
 typedef int (*widget_instance_text_signal_cb)(widget_context_h context, const char *signal_name,
-        const char *source, widget_obj_event_info_s *info);
+        const char *source, widget_obj_event_info_s *info, void *user_data);
 
 typedef struct _widget_obj_private_ops
 {

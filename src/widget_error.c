@@ -77,13 +77,13 @@ static const char* widget_app_error_to_string(widget_error_e error)
 	case WIDGET_ERROR_DISABLED:
 		return "DISABLED";
 
-	default :
+	default:
 		return "UNKNOWN";
 	}
 }
 
 int widget_app_error(widget_error_e error, const char* function,
-                     const char *description)
+			const char *description)
 {
 	if (description) {
 		LOGE("[%s] %s(0x%08x) : %s", function, widget_app_error_to_string(error), error,

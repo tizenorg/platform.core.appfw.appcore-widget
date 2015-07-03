@@ -70,11 +70,12 @@ typedef struct _widget_context* widget_context_h;
  * @param[in] content The data set for the previous status
  * @param[in] w The pixel value for widget width
  * @param[in] h The pixel value for widget height
+ * @param[in] user_data The user data passed from widget_app_class_create function
  *
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
  */
-typedef int (*widget_instance_create_cb)(widget_context_h context, bundle *content, int w, int h);
+typedef int (*widget_instance_create_cb)(widget_context_h context, bundle *content, int w, int h, void *user_data);
 
 /**
  * @brief Called before the widget instance is destroyed.
@@ -87,6 +88,7 @@ typedef int (*widget_instance_create_cb)(widget_context_h context, bundle *conte
  * @param[in] context The context of widget instance.
  * @param[in] reason The reason for destruction
  * @param[in,out] content The data set to save
+ * @param[in] user_data The user data passed from widget_app_class_create function
  * @remark Note that the parameter 'content' is used to save the status of the widget instance.
  *         As a input parameter, content contains the saved status of the widget instance.
  *         You can fill the content parameter with the current status in this callback,
@@ -97,7 +99,7 @@ typedef int (*widget_instance_create_cb)(widget_context_h context, bundle *conte
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
  */
-typedef int (*widget_instance_destroy_cb)(widget_context_h context, widget_app_destroy_type_e reason, bundle *content);
+typedef int (*widget_instance_destroy_cb)(widget_context_h context, widget_app_destroy_type_e reason, bundle *content, void *user_data);
 
 /**
  * @brief Called when the widget is invisible.
@@ -107,10 +109,11 @@ typedef int (*widget_instance_destroy_cb)(widget_context_h context, widget_app_d
  *          The paused instance may be destroyed by framework
  *
  * @param[in] context The context of widget instance.
+ * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
  */
-typedef int (*widget_instance_pause_cb)(widget_context_h context);
+typedef int (*widget_instance_pause_cb)(widget_context_h context, void *user_data);
 
 /**
  * @brief Called when the widget is visible.
@@ -119,10 +122,11 @@ typedef int (*widget_instance_pause_cb)(widget_context_h context);
  * @details The callback function is called when the widget is visible.
  *
  * @param[in] context The context of widget instance.
+ * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
  */
-typedef int (*widget_instance_resume_cb)(widget_context_h context);
+typedef int (*widget_instance_resume_cb)(widget_context_h context, void *user_data);
 
 /**
  * @brief Called before the widget size is changed.
@@ -133,10 +137,11 @@ typedef int (*widget_instance_resume_cb)(widget_context_h context);
  * @param[in] context The context of widget instance.
  * @param[in] w The pixel value for widget width
  * @param[in] h The pixel value for widget height
+ * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
  */
-typedef int (*widget_instance_resize_cb)(widget_context_h context, int w, int h);
+typedef int (*widget_instance_resize_cb)(widget_context_h context, int w, int h, void *user_data);
 
 /**
  * @brief Called when the event for updating widget is received.
@@ -148,11 +153,12 @@ typedef int (*widget_instance_resize_cb)(widget_context_h context, int w, int h)
  * @param[in] content The data set for updating this widget. It will be provided by requester.
  *                    Requester can use widget_service_trigger_update().
  * @param[in] force Although the widget is paused, if it is TRUE, the widget can be updated.
+ * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
  * @see widget_service_trigger_update
  */
-typedef int (*widget_instance_update_cb)(widget_context_h context, bundle *content, int force);
+typedef int (*widget_instance_update_cb)(widget_context_h context, bundle *content, int force, void *user_data);
 
 /**
  * @brief The structure for lifecycle of a widget instance
@@ -348,12 +354,13 @@ const char* widget_app_get_id(widget_context_h context);
  * @since_tizen 2.3.1
  *
  * @param[in] callback The set of lifecycle callbacks
+ * @param[in] user_data The user data to be passed to the callback functions
  * @return The handle of class on success, otherwise NULL
  *         You can get the returned value using get_last_result()
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @see get_last_result
  */
-widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback);
+widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data);
 
 /**
  * @brief Sets a tag in the context
