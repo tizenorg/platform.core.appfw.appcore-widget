@@ -8,6 +8,6 @@ includedir=@INCLUDEDIR@
 Name: capi-appfw-widget-application
 Description: widget application library
 Version: 1.1
-Requires: aul dlog elementary capi-appfw-app-control capi-appfw-app-common widget_service widget_provider_app widget
+Requires: aul dlog elementary capi-appfw-app-control capi-appfw-app-common widget_service
 Libs: -L${libdir} -lcapi-appfw-widget-application
 Cflags: -I${includedir} -I${includedir}/appfw
