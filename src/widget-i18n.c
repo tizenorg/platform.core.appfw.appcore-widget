@@ -81,45 +81,6 @@ void _update_region(void)
 	}
 }
 
-static int __read_proc(const char *path, char *buf, int size)
-{
-	int fd;
-	int ret;
-
-	if (buf == NULL || path == NULL)
-		return -1;
-
-	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		return -1;
-
-	ret = read(fd, buf, size - 1);
-	if (ret <= 0) {
-		close(fd);
-		return -1;
-	} else
-		buf[ret] = 0;
-
-	close(fd);
-
-	return ret;
-}
-
-static char* __proc_get_cmdline()
-{
-#define MAX_CMD_BUFSZ 1024
-
-	char buf[MAX_CMD_BUFSZ];
-	int ret;
-
-	snprintf(buf, sizeof(buf), "/proc/%d/cmdline", getpid());
-	ret = __read_proc(buf, buf, sizeof(buf));
-	if (ret <= 0)
-		return NULL;
-
-	return strdup(buf);
-}
-
 static int __set_i18n(const char *domain)
 {
 	char *r;
