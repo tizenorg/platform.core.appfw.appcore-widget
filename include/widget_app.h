@@ -34,7 +34,7 @@ extern "C" {
  */
 
 /**
- * @brief Destroy type of widget instance
+ * @brief Destroy type of widget instance.
  * @since_tizen 2.3.1
  */
 typedef enum widget_app_destroy_type {
@@ -54,7 +54,7 @@ typedef enum widget_app_destroy_type {
 typedef struct _widget_class* widget_class_h;
 
 /**
- * @brief The handle for widget context
+ * @brief The handle for widget context.
  * @since_tizen 2.3.1
  */
 typedef struct _widget_context* widget_context_h;
@@ -106,9 +106,9 @@ typedef int (*widget_instance_destroy_cb)(widget_context_h context, widget_app_d
  * @since_tizen 2.3.1
  *
  * @details The callback function is called when the widget is invisible.
- *          The paused instance may be destroyed by framework
+ *          The paused instance may be destroyed by framework.
  *
- * @param[in] context The context of widget instance.
+ * @param[in] context The context of widget instance
  * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
@@ -121,7 +121,7 @@ typedef int (*widget_instance_pause_cb)(widget_context_h context, void *user_dat
  *
  * @details The callback function is called when the widget is visible.
  *
- * @param[in] context The context of widget instance.
+ * @param[in] context The context of widget instance
  * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
@@ -134,7 +134,7 @@ typedef int (*widget_instance_resume_cb)(widget_context_h context, void *user_da
  *
  * @details The callback function is called before the widget size is changed.
  *
- * @param[in] context The context of widget instance.
+ * @param[in] context The context of widget instance
  * @param[in] w The pixel value for widget width
  * @param[in] h The pixel value for widget height
  * @param[in] user_data The user data passed from widget_app_class_create function
@@ -151,17 +151,17 @@ typedef int (*widget_instance_resize_cb)(widget_context_h context, int w, int h,
  *
  * @param[in] context The context of widget instance.
  * @param[in] content The data set for updating this widget. It will be provided by requester.
- *                    Requester can use widget_service_trigger_update().
- * @param[in] force Although the widget is paused, if it is TRUE, the widget can be updated.
+ *                    Requester can use widget_service_trigger_update()
+ * @param[in] force Although the widget is paused, if it is TRUE, the widget can be updated
  * @param[in] user_data The user data passed from widget_app_class_create function
  * @return #WIDGET_ERROR_NONE on success,
  *         otherwise an error code (see WIDGET_ERROR_XXX) on failure
- * @see widget_service_trigger_update
+ * @see widget_service_trigger_update()
  */
 typedef int (*widget_instance_update_cb)(widget_context_h context, bundle *content, int force, void *user_data);
 
 /**
- * @brief The structure for lifecycle of a widget instance
+ * @brief The structure for lifecycle of a widget instance.
  * @since_tizen 2.3.1
  */
 typedef struct
@@ -210,7 +210,7 @@ typedef widget_class_h (*widget_app_create_cb)(void *user_data);
 typedef void (*widget_app_terminate_cb)(void *user_data);
 
 /**
- * @brief The structure for lifecycle of a widget application
+ * @brief The structure for lifecycle of a widget application.
  * @since_tizen 2.3.1
  */
 typedef struct
@@ -220,7 +220,7 @@ typedef struct
 } widget_app_lifecycle_callback_s;
 
 /**
- * @brief Called for each widget context
+ * @brief Called for each widget context.
  * @since_tizen 2.3.1
  *
  * @details This function will be called in the function of widget_app_foreach_context repeatedly.
@@ -229,7 +229,7 @@ typedef struct
  * @param[in] data The data for caller
  * @return true to continue with the next iteration of the loop,
  *         otherwise false to break out of the loop.
- * @see widget_app_foreach_context
+ * @see widget_app_foreach_context()
  */
 typedef bool (*widget_context_cb)(widget_context_h context, void *data);
 
@@ -242,13 +242,13 @@ typedef bool (*widget_context_cb)(widget_context_h context, void *data);
  * @param[in] callback The set of callback functions to handle application events
  * @param[in] user_data The user data to be passed to the callback functions
  *
- * @return @c 0 on success,
- *         otherwise a negative error value.
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
  * @retval #WIDGET_ERROR_NONE Successful
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
- * @see widget_app_exit
+ * @see widget_app_exit()
  */
 int widget_app_main(int argc, char **argv, widget_app_lifecycle_callback_s *callback, void *user_data);
 
@@ -257,23 +257,25 @@ int widget_app_main(int argc, char **argv, widget_app_lifecycle_callback_s *call
  * @details The main loop of the application stops and widget_app_terminate_cb() is invoked.
  * @since_tizen 2.3.1
  *
- * @return @c 0 on success,
- *         otherwise a negative error value.
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successful
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
- * @see widget_app_main
- * @see widget_app_terminate_cb
+ * @see widget_app_main()
+ * @see widget_app_terminate_cb()
  */
 int widget_app_exit(void);
 
 /**
- * @brief Finishes context for the widget instance
+ * @brief Finishes context for the widget instance.
  * @since_tizen 2.3.1
  *
  * @param[in] context The context for widget instance
  *
- * @return @c 0 on success, otherwise a negative error value.
- * @retval #WIDGET_ERROR_NONE Successfull
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successful
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
@@ -281,24 +283,25 @@ int widget_app_exit(void);
 int widget_app_terminate_context(widget_context_h context);
 
 /**
- * @brief Retrieves all widget contexts in this application
+ * @brief Retrieves all widget contexts in this application.
  * @since_tizen 2.3.1
  *
  * @param[in] callback The iteration callback function
  * @param[in] data The data for the callback function
  *
- * @return 0 on success, otherwise a negative error value
- * @retval #WIDGET_ERROR_NONE Successfull
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successful
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_CANCELED The iteration is canceled
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
- * @see widget_app_foreach_context
+ * @see widget_app_foreach_context()
  */
 int widget_app_foreach_context(widget_context_cb callback, void *data);
 
 /**
- * @brief Adds the system event handler
+ * @brief Adds the system event handler.
  * @since_tizen 2.3.1
  *
  * @param[out] event_handler The event handler
@@ -306,46 +309,48 @@ int widget_app_foreach_context(widget_context_cb callback, void *data);
  * @param[in] callback The callback function
  * @param[in] user_data The user data to be passed to the callback function
  *
- * @return 0 on success, otherwise a negative error value
- * @retval #WIDGET_ERROR_NONE Successfull
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successful
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_OUT_OF_MEMORY Out of memory
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
  * @see app_event_type_e
- * @see app_event_cb
- * @see watch_app_remove_event_handler
+ * @see app_event_cb()
+ * @see watch_app_remove_event_handler()
  */
 int widget_app_add_event_handler(app_event_handler_h *event_handler, app_event_type_e event_type,
                                  app_event_cb callback, void *user_data);
 
 /**
- * @brief Removes registered event handler
+ * @brief Removes registered event handler.
  * @since_tizen 2.3.1
  *
  * @param[in] event_handler The event handler
  *
- * @return 0 on success, otherwise a negative error value
- * @retval #WIDGET_ERROR_NONE Successfull
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successful
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
- * @see watch_app_add_event_handler
+ * @see watch_app_add_event_handler()
  */
 int widget_app_remove_event_handler(app_event_handler_h event_handler);
 
 /**
- * @brief Gets a widget instance id
+ * @brief Gets a widget instance id.
  * @since_tizen 2.3.1
  *
  * @param[in] context The context for widget instance
  *
+ * @remarks The specific error code can be obtained using the get_last_result() method. Error codes are described in Exception section.
  * @return Widget ID on success, otherwise NULL
- *         You can get the returned value using get_last_result()
- * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
- * @retval #WIDGET_ERROR_FAULT Unrecoverable error
+ * @exception #WIDGET_ERROR_NOT_SUPPORTED Not supported
+ * @exception #WIDGET_ERROR_FAULT Unrecoverable error
  * @remark You must not free returned Widget ID
- * @see get_last_result
+ * @see get_last_result()
  */
 const char* widget_app_get_id(widget_context_h context);
 
@@ -353,23 +358,27 @@ const char* widget_app_get_id(widget_context_h context);
  * @brief Makes a class for widget instances.
  * @since_tizen 2.3.1
  *
+ * @remarks The specific error code can be obtained using the get_last_result() method. Error codes are described in Exception section.
  * @param[in] callback The set of lifecycle callbacks
  * @param[in] user_data The user data to be passed to the callback functions
- * @return The handle of class on success, otherwise NULL
- *         You can get the returned value using get_last_result()
- * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
- * @see get_last_result
+ * @return The new widget class object. NULL on error
+ * @exception #WIDGET_ERROR_NONE Successfully added
+ * @exception #WIDGET_ERROR_INVALID_PARAMETER Not supported
+ * @exception #WIDGET_ERROR_NOT_SUPPORTED Not supported
+ * @exception #WIDGET_ERROR_OUT_OF_MEMORY Out of memory
+ * @see get_last_result()
  */
 widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data);
 
 /**
- * @brief Sets a tag in the context
+ * @brief Sets a tag in the context.
  * @since_tizen 2.3.1
  *
  * @param[in] context The context for widget instance
  * @param[in] tag The value to save
  *
- * @return 0 on success, otherwise a negative error value
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
@@ -377,13 +386,13 @@ widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s call
 int widget_app_context_set_tag(widget_context_h context, void *tag);
 
 /**
- * @brief Gets the tag in the context
+ * @brief Gets the tag in the context.
  * @since_tizen 2.3.1
  *
  * @param[in] context The context for widget instance
  * @param[out] tag The value to get
- *
- * @return 0 on success, otherwise a negative error value
+ * @return #WIDGET_ERROR_NONE on success,
+ *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
@@ -391,34 +400,52 @@ int widget_app_context_set_tag(widget_context_h context, void *tag);
 int widget_app_context_get_tag(widget_context_h context, void **tag);
 
 /**
- * @brief Sets the content info to the widget
+ * @brief Sets the content info to the widget.
  * @since_tizen 2.3.1
  * @param[in] context The context for widget instance
  * @param[in] content_info The data set to save
  * @return #WIDGET_ERROR_NONE on success,
  *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successfully sent
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid argument
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_OUT_OF_MEMORY Out of memory
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
- * @retval #WIDGET_ERROR_NONE Successfully sent
  */
 int widget_app_context_set_content_info(widget_context_h context, bundle *content_info);
 
 /**
- * @brief Sends the title to the widget
+ * @brief Sends the title to the widget.
  * @since_tizen 2.3.1
  * @param[in] context The context for widget instance
- * @param[in] title When an accessibility mode is turned on, this string will be read.
+ * @param[in] title When an accessibility mode is turned on, this string will be read
  * @return #WIDGET_ERROR_NONE on success,
  *          otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_NONE Successfully sent
  * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid argument
  * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
  * @retval #WIDGET_ERROR_OUT_OF_MEMORY Out of memory
  * @retval #WIDGET_ERROR_FAULT Unrecoverable error
- * @retval #WIDGET_ERROR_NONE Successfully sent
  */
 int widget_app_context_set_title(widget_context_h context, const char *title);
+
+/**
+ * @brief Adds an additional widget class for multi-class of widget instantiation.
+ * @since_tizen 3.0
+ * @remarks The specific error code can be obtained using the get_last_result() method. Error codes are described in Exception section.
+ * @param[in] widget_class The result of widget_app_class_create()
+ * @param[in] class_id The class id of provider
+ * @param[in] callback The set of lifecycle callbacks
+ * @param[in] user_data The user data to be passed to the callback functions
+ * @return The new widget class object. NULL on error
+ * @exception #WIDGET_ERROR_NONE Successfully added
+ * @exception #WIDGET_ERROR_INVALID_PARAMETER Not supported
+ * @exception #WIDGET_ERROR_NOT_SUPPORTED Not supported
+ * @exception #WIDGET_ERROR_OUT_OF_MEMORY Out of memory
+ * @see get_last_result()
+ */
+widget_class_h widget_app_add_class(widget_class_h widget_class, const char *class_id,
+		widget_instance_lifecycle_callback_s callback, void *user_data);
 
 /**
  * @}
