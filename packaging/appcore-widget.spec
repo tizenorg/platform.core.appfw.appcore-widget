@@ -15,9 +15,7 @@ BuildRequires:  pkgconfig(alarm-service)
 BuildRequires:  pkgconfig(capi-appfw-app-control)
 BuildRequires:  pkgconfig(capi-appfw-app-common)
 BuildRequires:  pkgconfig(widget_service)
-BuildRequires:  pkgconfig(widget_provider_app)
 BuildRequires:  pkgconfig(capi-system-info)
-BuildRequires:  pkgconfig(widget)
 BuildRequires:  cmake
 
 
