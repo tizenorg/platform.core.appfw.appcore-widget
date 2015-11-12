@@ -421,6 +421,21 @@ int widget_app_context_set_content_info(widget_context_h context, bundle *conten
 int widget_app_context_set_title(widget_context_h context, const char *title);
 
 /**
+ * @brief Add a class provider for widget instance create.
+ * since_tizen 3.0
+ * @param[in] parent_class The class provider handle. Set NULL if the function called first time in the widget_instance_create_cb().
+ * @param[in] class_id The class id of provider
+ * @param[in] callback The set of lifecycle callbacks
+ * @param[in] user_data The user data to be passed to the callback functions
+ * @return The handle of class on success, otherwise NULL
+ *         You can get the returned value using get_last_result()
+ * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
+ * @see get_last_result
+ */
+widget_class_h widget_app_add_class_provider(widget_class_h parent_class, const char *class_id,
+		widget_instance_lifecycle_callback_s callback, void *user_data);
+
+/**
  * @}
  */
 
