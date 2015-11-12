@@ -60,6 +60,19 @@ typedef struct _widget_class* widget_class_h;
 typedef struct _widget_context* widget_context_h;
 
 /**
+ * @brief Called for each widget class provider.
+ * @since_tizen 3.0
+ * @param[in] class_id The class id of class provider
+ * @param[in] widget_class The handle of widget class provider
+ * @param[in] user_data The user data passed from widget_app_foreach_class_provider function
+ *
+ * @return @c true to continue with the next iteration of the loop,
+ *         otherwise @c false to break out of the loop
+ *
+ */
+typedef int (*widget_class_provider_cb)(const char *class_id, widget_class_h widget_class, void *user_data);
+
+/**
  * @brief Called when the widget instance starts.
  * @since_tizen 2.3.1
  *
@@ -353,6 +366,7 @@ const char* widget_app_get_id(widget_context_h context);
  * @brief Makes a class for widget instances.
  * @since_tizen 2.3.1
  *
+ * @deprecated Deprecated since 3.0. Use widget_app_add_class_provier() instead.
  * @param[in] callback The set of lifecycle callbacks
  * @param[in] user_data The user data to be passed to the callback functions
  * @return The handle of class on success, otherwise NULL
@@ -419,6 +433,45 @@ int widget_app_context_set_content_info(widget_context_h context, bundle *conten
  * @retval #WIDGET_ERROR_NONE Successfully sent
  */
 int widget_app_context_set_title(widget_context_h context, const char *title);
+
+/**
+ * @brief Add a class provider for widget instance create.
+ * since_tizen 3.0
+ * @param[in] widget_class The class provider handle
+ * @param[in] class_id The class id of provider
+ * @param[in] callback The set of lifecycle callbacks
+ * @param[in] user_data The user data to be passed to the callback functions
+ * @return The handle of class on success, otherwise NULL
+ *         You can get the returned value using get_last_result()
+ * @retval #WIDGET_ERROR_NOT_SUPPORTED Not supported
+ * @see get_last_result
+ */
+widget_class_h widget_app_add_class_provider(widget_class_h widget_class, const char *class_id,
+		widget_instance_lifecycle_callback_s callback, void *user_data);
+
+/**
+ * @brief Get a class id in the class provider.
+ * @since_tizen 3.0
+ * @param[in] widget_class The handle for class provider
+ * @param[out] class_id The class id of class provider.
+ * @return #WIDGET_ERROR_NONE on success,
+ *		otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid argument
+ * @retval #WIDGET_ERROR_NONE Success
+ */
+int widget_app_get_class_id(widget_class_h widget_class, char **class_id);
+
+/**
+ * @brief Retrieves all the class providers in this application.
+ * @since_tizen 3.0
+ * @param[in] callback The iterate callback function
+ * @param[in] user_data The use data to be passed to the callback functions
+ * retrun #WIDGET_ERROR_NONE on success,
+ *		otherwise an error code (see WIDGET_ERROR_XXX) on failure
+ * @retval #WIDGET_ERROR_INVALID_PARAMETER Invalid argument
+ * @retval #WIDGET_ERROR_NONE Success
+ */
+int widget_app_foreach_class_provider(widget_class_provider_cb callback, void *user_data);
 
 /**
  * @}
