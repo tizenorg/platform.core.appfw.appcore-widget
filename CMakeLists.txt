@@ -38,8 +38,6 @@ pkg_check_modules(pkg_widget REQUIRED
 		elementary
 		vconf-internal-keys
 		widget_service
-		widget_provider_app
-		widget
 		capi-system-info
 		)
 FOREACH(flag ${pkg_widget_CFLAGS})

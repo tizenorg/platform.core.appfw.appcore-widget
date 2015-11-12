@@ -22,17 +22,13 @@
 #include <dlog.h>
 #include <glib.h>
 #include <glib-object.h>
+#include <stdlib.h>
 #include <app_control.h>
 #include <app_control_internal.h>
-#include <widget.h>
-#include <widget_service.h>
-#include <widget_service_internal.h>
-#include <widget_provider_app.h>
-#include <widget_provider_app_internal.h>
 #include <Elementary.h>
-#include <vconf.h>
 #include <widget_errno.h>
-#include <system_info.h>
+#include <widget_instance.h>
+#include <widget_service_internal.h>
 
 #include "widget_app.h"
 #include "widget-log.h"
@@ -46,15 +42,6 @@
 #define STR_MAX_BUF 128
 #define LOG_TAG "CAPI_WIDGET_APPLICATION"
 #define K_REASON    "__WC_K_REASON__"
-
-#define ELM_WIN_TIZEN_WIDGET -1
-/* TODO
- * This definition is intended to prevent the build break.
- * This should be removed after adding ELM_WIN_TIZEN_WIDGET in Elm_Win_Type.
- */
-
-#define WIDGET_APP_EVENT_MAX 5
-static GList *handler_list[WIDGET_APP_EVENT_MAX] = {NULL, };
 
 typedef enum _widget_obj_state_e {
 	WC_READY = 0,
@@ -77,60 +64,36 @@ struct app_event_info {
 struct _widget_class {
 	void *user_data;
 	widget_instance_lifecycle_callback_s ops;
-	widget_obj_private_ops_s ops_private;
+	char *classid;
+	struct _widget_class *next;
+	struct _widget_class *prev;
 };
 
 struct _widget_context {
 	char *id;
+	struct _widget_class *provider;
 	int state;
 	void *tag;
+	Evas_Object *win;
+	bundle *content;
 	widget_instance_lifecycle_callback_s ops;
-	widget_obj_private_ops_s ops_private;
 };
 
 typedef struct _widget_class widget_class_s;
 typedef struct _widget_context widget_context_s;
 
-static widget_app_lifecycle_callback_s *app_ops = NULL;
+static int caller_pid = 0;
+static widget_app_lifecycle_callback_s *app_ops;
 static void *app_user_data = NULL;
-static widget_class_factory_full_s factory;
-static widget_class_s *widget_class = NULL;
-static widget_class_s widget_class_tmp;
-static GList *contexts = NULL;
-static int is_init_provider = 0;
 static char *appid = NULL;
-static int is_background = -1;
+static widget_class_h class_provider = NULL;
+static GList *contexts = NULL;
 
 static gint __comp_by_id(gconstpointer a, gconstpointer b)
 {
 	widget_context_s *wc = (widget_context_s*)a;
 
-	return strcmp(wc->id, (const char*)b);
-}
-
-static void __check_status_for_cgroup(void)
-{
-	GList *iter = g_list_first(contexts);
-
-	while (iter != NULL) {
-		widget_context_s *cxt = (widget_context_s*) iter->data;
-
-		if (cxt->state != WC_PAUSED) {
-			if (is_background != 0) {
-				is_background = 0;
-				_I("enter foreground group");
-				//TODO: Do something to enter foreground group
-			}
-			return;
-		}
-		iter = g_list_next(iter);
-	}
-
-	if (g_list_length(contexts) > 0 && is_background == 0) {
-		is_background = 1;
-		_I("enter background group");
-		//TODO: DO something to enter background group
-	}
+ 	return strcmp(wc->id, (const char*)b);
 }
 
 static widget_context_s* __find_context_by_id(const char *id)
@@ -143,262 +106,170 @@ static widget_context_s* __find_context_by_id(const char *id)
 	return ret->data;
 }
 
-static int __provider_create_cb(const char *id, const char *content, int w,
-				int h,
-				void *data)
+static int __send_update_status(const char *class_id, const char *instance_id,
+	int status, bundle *extra, int internal_only)
 {
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *wc = (widget_context_s*)malloc(sizeof(widget_context_s));
-	if (wc == NULL)
+	return aul_update_widget_status(class_id, instance_id, status, extra, internal_only ? caller_pid : 0);
+}
+
+static int __instance_create(widget_class_h handle, const char *id, bundle *b)
+{
+	widget_context_s *wc = NULL;
+	int w = 0, h = 0;
+	char *w_str = NULL, *h_str = NULL;
+	char *remain = NULL;
+	int ret = 0;
+
+	wc = (widget_context_s *)malloc(sizeof(widget_context_s));
+	if (!wc)
 		return WIDGET_ERROR_OUT_OF_MEMORY;
 
-	wc->id = strdup(id);
 	wc->state = WC_READY;
-	wc->tag = NULL;
-	wc->ops = widget_class->ops;
-	wc->ops_private = widget_class->ops_private;
+	wc->id = g_strdup(id);
+	wc->provider = handle;
+	wc->win = NULL;
+
+	wc->content = bundle_dup(b);
+	bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
+	bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
+
+	if (w_str) {
+		w = (int)g_ascii_strtoll(w_str, &remain, 10);
+	}
+
+	if (h_str) {
+		h = (int)g_ascii_strtoll(h_str, &remain, 10);
+	}
+
 	contexts = g_list_append(contexts, wc);
 
-	if (wc->ops.create) {
-		bundle *b = NULL;
-		if (content)
-			b = bundle_decode((const bundle_raw*)content, strlen(content));
-		ret = wc->ops.create(wc, b,  w, h, widget_class->user_data);
-		if (b)
-			bundle_free(b);
-	}
-	_I("widget obj was created");
+	handle->ops.create(wc, b, w, h, handle->user_data);
+
+	ret = __send_update_status(handle->classid, wc->id, WIDGET_INSTANCE_EVENT_CREATE, b, 0);
 
 	return ret;
 }
 
-static int __provider_resize_cb(const char *id, int w, int h, void *data)
+static int __instance_destroy(widget_class_h handle, const char *id, widget_destroy_type_e reason, bundle *b)
 {
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *cxt = __find_context_by_id(id);
+	widget_context_s *wc = __find_context_by_id(id);
+	int ret = 0;
 
-	if (cxt) {
-		if (cxt->ops.resize)
-			ret = cxt->ops.resize(cxt, w, h, widget_class->user_data);
-		_I("received resizing signal");
+	if (wc) {
+		wc->state = WC_TERMINATED;
+		handle->ops.destroy(wc, (widget_app_destroy_type_e)reason, b, handle->user_data);
+
+		ret = __send_update_status(handle->classid, id, WIDGET_INSTANCE_EVENT_TERMINATE, b, 0);
+
+		contexts = g_list_remove(contexts, wc);
+
+		if (wc->id)
+			free(wc->id);
+		free(wc);
 	} else {
-		_E("could not find widget obj : %s", __FUNCTION__);
+		_E("could not find widget obj: %s", id);
+		ret = WIDGET_ERROR_INVALID_PARAMETER;
 	}
 
 	return ret;
 }
 
-static int __provider_destroy_cb(const char *id, widget_destroy_type_e reason,
-				void *data)
+static widget_class_h __find_class_handler(const char *class_id, widget_class_h handle)
 {
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *cxt = __find_context_by_id(id);
+	if (!class_id || !handle)
+		return NULL;
 
-	if (cxt) {
-		cxt->state = WC_TERMINATED;
-		if (cxt->ops.destroy) {
-			bundle *b  = bundle_create();
-			ret = cxt->ops.destroy(cxt, (widget_app_destroy_type_e)reason, b, widget_class->user_data);
+	widget_class_h head = handle;
 
-			bundle_raw *raw = NULL;
-			int len;
+	while (head) {
+		if (head->classid && strcmp(head->classid, class_id) == 0)
+			return head;
 
-			bundle_encode(b, &raw, &len);
-			if (raw) {
-				widget_provider_app_send_extra_info(id, (const char*)raw, NULL);
-				free(raw);
-			}
-
-			bundle_free(b);
-			contexts = g_list_remove(contexts, cxt);
-
-			free(cxt->id);
-			free(cxt);
-		}
-		_I("widget obj was deleted");
-	} else {
-		_E("could not find widget obj : %s", __FUNCTION__);
+		head = head->next;
 	}
 
-	return ret;
-}
-
-static int __provider_update_cb(const char *id, const char *content, int force,
-				void *data)
-{
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *cxt = __find_context_by_id(id);
-
-	if (cxt) {
-		if (cxt->ops.update) {
-			bundle *b = NULL;
-			if (content)
-				b = bundle_decode((const bundle_raw*)content, strlen(content));
-			ret = cxt->ops.update(cxt, b, force, widget_class->user_data);
-
-			if (b)
-				bundle_free(b);
-		}
-		_I("received updating signal");
-	} else {
-		_E("could not find widget obj : %s", __FUNCTION__);
-	}
-
-	return ret;
-}
-
-static int __provider_pause_cb(const char *id, void *data)
-{
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *cxt = __find_context_by_id(id);
-
-	if (cxt) {
-		if (cxt->ops.pause)
-			ret = cxt->ops.pause(cxt, widget_class->user_data);
-		cxt->state = WC_PAUSED;
-		_I("widget obj was paused");
-	} else {
-		_E("could not find widget obj : %s", __FUNCTION__);
-	}
-
-	__check_status_for_cgroup();
-	return ret;
-}
-
-static int __provider_resume_cb(const char *id, void *data)
-{
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *cxt = __find_context_by_id(id);
-
-	if (cxt) {
-		if (cxt->ops.resume)
-			ret = cxt->ops.resume(cxt, widget_class->user_data);
-		cxt->state = WC_RUNNING;
-		_I("widget obj was resumed");
-	} else {
-		_E("could not find widget obj : %s", __FUNCTION__);
-	}
-
-	__check_status_for_cgroup();
-	return ret;
-}
-
-static int __provider_text_signal_cb(const char *id, const char *signal_name,
-				const char *source, struct widget_event_info *info, void *data)
-{
-	int ret = WIDGET_ERROR_FAULT;
-	widget_context_s *cxt = __find_context_by_id(id);
-
-	if (cxt) {
-		if (cxt->ops_private.text_signal) {
-			ret = cxt->ops_private.text_signal(cxt, signal_name, source,
-							(widget_obj_event_info_s*)info, widget_class->user_data);
-		}
-		_I("received text signal");
-	} else {
-		_E("could not find widget obj : %s", __FUNCTION__);
-	}
-
-	return ret;
-}
-
-static const widget_class_factory_full_s*
-__widget_class_factory_override_text_signal(widget_instance_text_signal_cb op)
-{
-	widget_class_tmp.ops_private.text_signal = op;
-	return &factory;
-}
-
-static void __free_handler_cb(gpointer data)
-{
-	if (data)
-		free(data);
-}
-
-static void __free_handler_list(void)
-{
-	int i;
-
-	for (i = 0; i < WIDGET_APP_EVENT_MAX; i++) {
-		g_list_free_full(handler_list[i], __free_handler_cb);
-		handler_list[i] = NULL;
-	}
+	return NULL;
 }
 
 static void __control(bundle *b)
 {
-	app_control_h app_control;
+	char *class_id = NULL;
+	char *id = NULL;
+	char *operation = NULL;
+	char *reason = NULL;
+	char *remain = NULL;
+	int destroy_type = WIDGET_DESTROY_TYPE_DEFAULT;
 
-	if (is_init_provider) {
-		_E("already initialized");
-		return;
+	widget_class_h handle = NULL;
+	bundle_get_str(b, WIDGET_K_CLASS, &class_id);
+	/* for previous version compatibility, use appid for default class id */
+	if (class_id == NULL)
+		class_id = appid;
+
+	bundle_get_str(b, WIDGET_K_INSTANCE, &id);
+	bundle_get_str(b, WIDGET_K_OPERATION, &operation);
+
+	handle = __find_class_handler(class_id, class_provider);
+	if (!handle) {
+		_E("no handle provided: %s", class_id);
+		goto error;
 	}
 
-	if (app_control_create_event(b, &app_control) != 0) {
-		_E("failed to get the app_control handle");
-		return;
+	if (!operation) {
+		_E("no operation provided");
+		goto error;
 	}
 
-	char *op = NULL;
-	app_control_get_operation(app_control, &op);
+	if (strcmp(operation, "create") == 0) {
+		__instance_create(handle, id, b);
+	} else if (strcmp(operation, "resize") == 0) {
+		/* TODO */
+	} else if (strcmp(operation, "update") == 0) {
+		/* TODO */
+	} else if (strcmp(operation, "destroy") == 0) {
+		bundle_get_str(b, WIDGET_K_REASON, &reason);
+		if (reason)
+			destroy_type = (int)g_ascii_strtoll(reason, &remain, 10);
 
-	if (op && strcmp(op, "http://tizen.org/appcontrol/operation/main") == 0) {
-		static struct widget_provider_event_callback cb = {
-			.create = __provider_create_cb,
-			.resize = __provider_resize_cb,
-			.destroy = __provider_destroy_cb,
-
-			.update = __provider_update_cb,
-			.text_signal = __provider_text_signal_cb,
-
-			.pause = __provider_pause_cb,
-			.resume = __provider_resume_cb,
-
-			.connected = NULL,
-			.disconnected = NULL,
-
-			.data = NULL,
-		};
-
-		if (widget_provider_app_init(app_control, &cb) == 0)
-			is_init_provider = 1;
-
+		__instance_destroy(handle, id, destroy_type, b);
+	} else if (strcmp(operation, "resume") == 0) {
+		/* TODO */
+	} else if (strcmp(operation, "pause") == 0) {
+		/* TODO */
 	}
 
-	app_control_destroy(app_control);
-	if (op)
-		free(op);
+	return;
+error:
+	LOGD("error on control");
+	return;
 }
 
-static void __pause_all()
+static void __show_all()
 {
-	GList *iter = g_list_first(contexts);
-
-	while (iter != NULL) {
-		widget_context_s *cxt = (widget_context_s*) iter->data;
-		const char *id = cxt->id;
-
-		switch (cxt->state) {
-		case WC_READY:
-			__provider_resume_cb(id, NULL);
-			__provider_pause_cb(id, NULL);
-			break;
-
-		case WC_RUNNING:
-			__provider_pause_cb(id, NULL);
-			break;
-		}
-		iter = g_list_next(iter);
-	}
+	LOGD("resume");
 }
 
 static int __aul_handler(aul_type type, bundle *b, void *data)
 {
+	char *caller = NULL;
+	char *remain = NULL;
+
 	switch (type) {
 	case AUL_START:
+		if (b) {
+			bundle_get_str(b, WIDGET_K_CALLER, &caller);
+			if (caller)
+				caller_pid = g_ascii_strtoll(caller, &remain, 10);
+			else {
+				/* using caller appid and query pid using caller appid? */
+				_E("no caller pid");
+			}
+		}
+
 		__control(b);
 		break;
 	case AUL_RESUME:
+		__show_all();
 		break;
 	case AUL_TERMINATE:
 		widget_app_exit();
@@ -410,39 +281,36 @@ static int __aul_handler(aul_type type, bundle *b, void *data)
 	return 0;
 }
 
-static char* __get_domain_name(const char *aid)
-{
-	char *name_token = NULL;
-
-	if (aid == NULL) {
-		_E("appid is NULL");
-		return NULL;
-	}
-
-	/* com.vendor.name -> name */
-	name_token = strrchr(aid, '.');
-
-	if (name_token == NULL) {
-		_E("appid is invalid");
-		return strdup(aid);
-	}
-
-	name_token++;
-
-	return strdup(name_token);
-}
 
 static int __before_loop(int argc, char **argv)
 {
 	int r;
+	bundle *kb = NULL;
+	char *wayland_display = NULL;
+	char *xdg_runtime_dir = NULL;
 
 #if !(GLIB_CHECK_VERSION(2, 36, 0))
 	g_type_init();
 #endif
 
-	elm_init(argc, argv);
+	kb = bundle_import_from_argv(argc, argv);
+	if (kb) {
+		bundle_get_str(kb, AUL_K_WAYLAND_WORKING_DIR, &xdg_runtime_dir);
+		bundle_get_str(kb, AUL_K_WAYLAND_DISPLAY, &wayland_display);
 
-	factory.override_text_signal = __widget_class_factory_override_text_signal;
+		if (xdg_runtime_dir)
+			setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1);
+
+		if (wayland_display)
+			setenv("WAYLAND_DISPLAY", wayland_display, 1);
+
+		bundle_free(kb);
+		kb = NULL;
+	} else {
+		_E("failed to get launch argv");
+	}
+
+	elm_init(argc, argv);
 
 	r = aul_launch_init(__aul_handler, NULL);
 	if (r < 0) {
@@ -460,26 +328,8 @@ static int __before_loop(int argc, char **argv)
 	if (r != APP_ERROR_NONE)
 		return r;
 
-	char *name = __get_domain_name(appid);
-
-	if (name == NULL) {
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
-					"Fail to call __get_domain_name");
-	}
-
-	r = _set_i18n(name);
-
-	free(name);
-	if (r < 0) {
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
-					"Fail to call _set_i18n");
-	}
-
-	widget_provider_app_create_app();
-
-	memset(&widget_class_tmp, 0, sizeof(widget_class_tmp));
-	widget_class = app_ops->create(app_user_data);
-	if (widget_class == NULL) {
+	class_provider = app_ops->create(app_user_data);
+	if (class_provider == NULL) {
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
 					"widget_class is NULL");
 	}
@@ -489,204 +339,16 @@ static int __before_loop(int argc, char **argv)
 
 static void __after_loop()
 {
-	__pause_all();
-	widget_provider_app_terminate_app(WIDGET_DESTROY_TYPE_TEMPORARY, 1);
-
 	if (app_ops->terminate)
 		app_ops->terminate(app_user_data);
 
-	if (is_init_provider) {
-		widget_provider_app_fini();
-		is_init_provider = 0;
-	}
-	__free_handler_list();
 	elm_shutdown();
-	if (appid)
-		free(appid);
-	if (contexts)
-		g_list_free(contexts);
-	contexts = NULL;
-}
-
-static gboolean __finish_event_cb(gpointer user_data)
-{
-	if (user_data == NULL)
-		return FALSE;
-
-	widget_context_s *wc = (widget_context_s*) user_data;
-	const char* id = wc->id;
-
-	switch (wc->state) {
-	case WC_READY:
-		__provider_resume_cb(id, NULL);
-		__provider_pause_cb(id, NULL);
-		__provider_destroy_cb(id, WIDGET_DESTROY_TYPE_DEFAULT, NULL);
-		break;
-
-	case WC_RUNNING:
-		__provider_pause_cb(id, NULL);
-		__provider_destroy_cb(id, WIDGET_DESTROY_TYPE_DEFAULT, NULL);
-		break;
-
-	case WC_PAUSED:
-		__provider_destroy_cb(id, WIDGET_DESTROY_TYPE_DEFAULT, NULL);
-		break;
-	}
-
-	widget_provider_app_send_deleted(id);
-	return FALSE;
-}
-
-static void __on_low_memory(keynode_t *key, void *data)
-{
-	int val;
-
-	val = vconf_keynode_get_int(key);
-	if (val == VCONFKEY_SYSMAN_LOW_MEMORY_SOFT_WARNING) {
-		app_event_handler_h handler;
-		struct app_event_info event;
-
-		_I("widget_app_low_memory");
-
-		event.type = APP_EVENT_LOW_MEMORY;
-		event.value = (void*)&val;
-
-		GList *iter = g_list_first(handler_list[APP_EVENT_LOW_MEMORY]);
-
-		while (iter) {
-			handler = (app_event_handler_h) iter->data;
-			handler->cb(&event, handler->data);
-			iter = g_list_next(iter);
-		}
-	}
-}
-
-static void __on_low_battery(keynode_t *key, void *data)
-{
-	int val;
-
-	val = vconf_keynode_get_int(key);
-	if (val <= VCONFKEY_SYSMAN_BAT_CRITICAL_LOW) {
-		app_event_handler_h handler;
-		struct app_event_info event;
-
-		_I("widget_app_low_battery");
-
-		event.type = APP_EVENT_LOW_BATTERY;
-		event.value = (void*)&val;
-
-		GList *iter = g_list_first(handler_list[APP_EVENT_LOW_BATTERY]);
-
-		while (iter) {
-			handler = (app_event_handler_h) iter->data;
-			handler->cb(&event, handler->data);
-			iter = g_list_next(iter);
-		}
-	}
-}
-
-static void __on_lang_changed(keynode_t *key, void *data)
-{
-	char *val;
-
-	_update_lang();
-	val = vconf_keynode_get_str(key);
-
-	app_event_handler_h handler;
-	struct app_event_info event;
-
-	_I("widget_app_lang_changed");
-
-	event.type = APP_EVENT_LANGUAGE_CHANGED;
-	event.value = (void*)val;
-
-	GList *iter = g_list_first(handler_list[APP_EVENT_LANGUAGE_CHANGED]);
-
-	while (iter) {
-		handler = (app_event_handler_h) iter->data;
-		handler->cb(&event, handler->data);
-		iter = g_list_next(iter);
-	}
-}
-
-static void __on_region_changed(keynode_t *key, void *data)
-{
-	char *val;
-
-	_update_region();
-	val = vconf_keynode_get_str(key);
-
-	app_event_handler_h handler;
-	struct app_event_info event;
-
-	_I("widget_app_region_changed");
-
-	event.type = APP_EVENT_REGION_FORMAT_CHANGED;
-	event.value = (void*)val;
-
-	GList *iter = g_list_first(handler_list[APP_EVENT_REGION_FORMAT_CHANGED]);
-
-	while (iter) {
-		handler = (app_event_handler_h) iter->data;
-		handler->cb(&event, handler->data);
-		iter = g_list_next(iter);
-	}
-}
-
-static void __register_event(int event_type)
-{
-	switch (event_type) {
-	case APP_EVENT_LOW_MEMORY:
-		vconf_notify_key_changed(VCONFKEY_SYSMAN_LOW_MEMORY, __on_low_memory, NULL);
-		break;
-
-	case APP_EVENT_LOW_BATTERY:
-		vconf_notify_key_changed(VCONFKEY_SYSMAN_BATTERY_STATUS_LOW, __on_low_battery, NULL);
-		break;
-
-	case APP_EVENT_LANGUAGE_CHANGED:
-		vconf_notify_key_changed(VCONFKEY_LANGSET, __on_lang_changed, NULL);
-		break;
-
-	case APP_EVENT_REGION_FORMAT_CHANGED:
-		vconf_notify_key_changed(VCONFKEY_REGIONFORMAT, __on_region_changed, NULL);
-		break;
-	}
-}
-
-static void __unregister_event(int event_type)
-{
-	switch (event_type) {
-	case APP_EVENT_LOW_MEMORY:
-		vconf_ignore_key_changed(VCONFKEY_SYSMAN_LOW_MEMORY, __on_low_memory);
-		break;
-
-	case APP_EVENT_LOW_BATTERY:
-		vconf_ignore_key_changed(VCONFKEY_SYSMAN_BATTERY_STATUS_LOW, __on_low_battery);
-		break;
-
-	case APP_EVENT_LANGUAGE_CHANGED:
-		vconf_ignore_key_changed(VCONFKEY_LANGSET, __on_lang_changed);
-		break;
-
-	case APP_EVENT_REGION_FORMAT_CHANGED:
-		vconf_ignore_key_changed(VCONFKEY_REGIONFORMAT, __on_region_changed);
-		break;
-	}
 }
 
 EXPORT_API int widget_app_main(int argc, char **argv,
 				widget_app_lifecycle_callback_s *callback, void *user_data)
 {
 	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
 
 	if (argc <= 0 || argv == NULL || callback == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
@@ -701,7 +363,7 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 		return r;
 
 	ecore_main_loop_begin();
-	//aul_status_update(STATUS_DYING);
+	aul_status_update(STATUS_DYING);
 	__after_loop();
 
 	return WIDGET_ERROR_NONE;
@@ -709,37 +371,40 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 
 EXPORT_API int widget_app_exit(void)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
 	ecore_main_loop_quit();
 
 	return WIDGET_ERROR_NONE;
 }
 
+static gboolean __finish_event_cb(gpointer user_data)
+{
+	if (user_data == NULL)
+		return FALSE;
+
+	widget_context_s *wc = (widget_context_s *)user_data;
+
+	switch (wc->state) {
+	case WC_READY:
+
+		break;
+	case WC_RUNNING:
+
+		break;
+	case WC_PAUSED:
+
+		break;
+	default:
+		break;
+	}
+
+
+	return FALSE;
+}
+
 EXPORT_API int widget_app_terminate_context(widget_context_h context)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
-	if (context == NULL) {
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
-					"obj is NULL");
-	}
+	if (context == NULL)
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
 	g_idle_add(__finish_event_cb, context);
 	return WIDGET_ERROR_NONE;
@@ -747,30 +412,6 @@ EXPORT_API int widget_app_terminate_context(widget_context_h context)
 
 EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
-	if (cb == NULL)
-		return WIDGET_ERROR_INVALID_PARAMETER;
-
-	GList *iter = g_list_first(contexts);
-
-	while (iter != NULL) {
-		widget_context_s *cxt = (widget_context_s*) iter->data;
-
-		if (!cb(cxt, data))
-			return WIDGET_ERROR_CANCELED;
-
-		iter = g_list_next(iter);
-	}
-
 	return WIDGET_ERROR_NONE;
 }
 
@@ -778,176 +419,47 @@ EXPORT_API int widget_app_add_event_handler(app_event_handler_h *event_handler,
 					app_event_type_e event_type, app_event_cb callback,
 					void *user_data)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
-	app_event_handler_h handler;
-
-	if (event_handler == NULL || callback == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
-
-	if (event_type < APP_EVENT_LOW_MEMORY
-	    || event_type > APP_EVENT_REGION_FORMAT_CHANGED)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
-
-	if (event_type == APP_EVENT_DEVICE_ORIENTATION_CHANGED)
-		return widget_app_error(WIDGET_ERROR_NOT_SUPPORTED, __FUNCTION__, NULL);
-
-	GList *iter = g_list_first(handler_list[event_type]);
-
-	while (iter) {
-		handler = (app_event_handler_h) iter->data;
-
-		if (handler->cb == callback)
-			return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
-
-		iter = g_list_next(iter);
-	}
-
-	handler = calloc(1, sizeof(struct app_event_handler));
-	if (!handler)
-		return widget_app_error(WIDGET_ERROR_OUT_OF_MEMORY, __FUNCTION__, NULL);
-
-	if (g_list_length(handler_list[event_type]) == 0)
-		__register_event(event_type);
-
-	handler->type = event_type;
-	handler->cb = callback;
-	handler->data = user_data;
-	handler_list[event_type] = g_list_append(handler_list[event_type], handler);
-
-	*event_handler = handler;
-
-	return WIDGET_ERROR_NONE;
+	/* TODO */
+	return 0;
 }
 
 EXPORT_API int widget_app_remove_event_handler(app_event_handler_h
 						event_handler)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
-	app_event_type_e type;
-
-	if (event_handler == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
-
-	type = event_handler->type;
-	if (type < APP_EVENT_LOW_MEMORY || type > APP_EVENT_REGION_FORMAT_CHANGED)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
-
-	handler_list[type] = g_list_remove(handler_list[type], event_handler);
-	free(event_handler);
-
-	if (g_list_length(handler_list[type]) == 0)
-		__unregister_event(type);
-
-	return WIDGET_ERROR_NONE;
+	/* TODO */
+	return 0;
 }
 
 EXPORT_API const char* widget_app_get_id(widget_context_h context)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0) {
-		set_last_result(WIDGET_ERROR_FAULT);
-		return NULL;
-	}
-
-	if (!feature) {
-		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
-		return NULL;
-	}
-
-	if (context == NULL) {
-		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
-		return NULL;
-	}
-
-	widget_context_s *cxt = (widget_context_s*)context;
-
-	set_last_result(WIDGET_ERROR_NONE);
-	return cxt->id;
+	return context->id;
 }
 
 EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 					Evas_Object **win)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
 	if (context == NULL || win == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
 	widget_context_s *cxt = (widget_context_s*)context;
-	Evas *evas;
 	Evas_Object *ret_win = NULL;
 
-	evas = widget_get_evas(cxt->id);
-	if (evas) {
-		Evas_Object *widget_parent;
-		widget_parent = evas_object_rectangle_add(evas);
-		if (widget_parent) {
-			ret_win = elm_win_add(widget_parent, cxt->id, ELM_WIN_TIZEN_WIDGET);
-			/* ret_win = elm_win_tizen_widget_add(cxt->id, widget_parent); */
-
-			evas_object_del(widget_parent);
-			if (ret_win == NULL) {
-				_E("win is NULL");
-				return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
-			}
-		} else {
-			_E("Failed to get parent widget");
-			return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
-		}
-	} else {
-		_E("parent evas object is NULL");
-		return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
+	ret_win = elm_win_add(NULL, cxt->id, ELM_WIN_BASIC);
+	if (ret_win == NULL) {
+		_E("failed to create window");
+		return WIDGET_ERROR_FAULT;
 	}
+	elm_win_title_set(ret_win, cxt->id);
 
 	*win = ret_win;
+	cxt->win = ret_win;
+
 	return WIDGET_ERROR_NONE;
 }
 
-EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data)
+widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
+		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0) {
-		set_last_result(WIDGET_ERROR_FAULT);
-		return NULL;
-	}
-
-	if (!feature) {
-		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
-		return NULL;
-	}
-
 	widget_class_s *wc = (widget_class_s*)malloc(sizeof(widget_class_s));
 
 	if (wc == NULL) {
@@ -956,25 +468,38 @@ EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_call
 		return NULL;
 	}
 
+	wc->classid = strdup(class_id);
 	wc->user_data = user_data;
 	wc->ops = callback;
-	wc->ops_private = widget_class_tmp.ops_private;
+	wc->next = prev;
+	wc->prev = NULL;
+
 	set_last_result(WIDGET_ERROR_NONE);
+
+	if (prev)
+		prev->prev = wc;
+
 	return wc;
+}
+
+EXPORT_API widget_class_h widget_app_add_class(widget_class_h widget_class, const char *class_id,
+		widget_instance_lifecycle_callback_s callback, void *user_data)
+{
+	if (class_id == NULL) {
+		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		return NULL;
+	}
+
+	return _widget_class_create(widget_class, class_id, callback, user_data);
+}
+
+EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data)
+{
+	return _widget_class_create(class_provider, appid, callback, user_data);
 }
 
 EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
 	if (context == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -985,16 +510,6 @@ EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 
 EXPORT_API int widget_app_context_get_tag(widget_context_h context, void **tag)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
 	if (context == NULL || tag == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -1005,52 +520,34 @@ EXPORT_API int widget_app_context_get_tag(widget_context_h context, void **tag)
 
 EXPORT_API int widget_app_context_set_content_info(widget_context_h context, bundle *content_info)
 {
-	int r;
-	bool feature;
+	const char *class_id = NULL;
+	int ret = 0;
+	if (context == NULL || content_info == NULL)
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
+	if (context->provider == NULL)
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
+	class_id = context->provider->classid;
 
-	if (content_info == NULL)
-		return WIDGET_ERROR_INVALID_PARAMETER;
+	if (class_id == NULL)
+		return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
 
-	bundle_raw *raw = NULL;
-	int len;
-	int ret = WIDGET_ERROR_FAULT;
+	ret = __send_update_status(class_id, context->id, WIDGET_INSTANCE_EVENT_UPDATE, content_info, true);
 
-	bundle_encode(content_info, &raw, &len);
-	if (raw) {
-		ret = widget_provider_app_send_extra_info(context->id, (const char*)raw, NULL);
-		free(raw);
+	if (ret < 0) {
+		_E("failed to send content info: %s of %s (%d)", context->id, class_id, ret);
+		return widget_app_error(WIDGET_ERROR_IO_ERROR, __FUNCTION__, NULL);
 	}
 
-	return ret;
+	return WIDGET_ERROR_NONE;
 }
 
 EXPORT_API int widget_app_context_set_title(widget_context_h context, const char *title)
 {
-	int r;
-	bool feature;
-
-	r = system_info_get_platform_bool(FEATURE_SHELL_APPWIDGET, &feature);
-	if (r < 0)
-		return WIDGET_ERROR_FAULT;
-
-	if (!feature)
-		return WIDGET_ERROR_NOT_SUPPORTED;
-
-	if (context == NULL)
-		return WIDGET_ERROR_INVALID_PARAMETER;
-
-	return widget_provider_app_send_extra_info(context->id, NULL, title);
+	/* TODO
+	 may use widget status update, or use surface title set.
+	 */
+	return 0;
 }
 
-/* private API */
-EXPORT_API const widget_class_factory_full_s* widget_app_get_class_factory(void)
-{
-	return &factory;
-}
