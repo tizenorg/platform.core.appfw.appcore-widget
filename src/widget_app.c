@@ -456,14 +456,23 @@ EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
 	widget_context_s *cxt = (widget_context_s*)context;
-	Evas_Object *ret_win = NULL;
+	Evas_Object *ret_win;
+	Ecore_Wl_Window *wl_win;
 
 	ret_win = elm_win_add(NULL, cxt->id, ELM_WIN_BASIC);
 	if (ret_win == NULL) {
 		_E("failed to create window");
 		return WIDGET_ERROR_FAULT;
 	}
-	elm_win_title_set(ret_win, cxt->id);
+
+	wl_win = elm_win_wl_window_get(ret_win);
+	if (wl_win == NULL) {
+		_E("failed to get wayland window");
+		evas_object_del(ret_win);
+		return WIDGET_ERROR_FAULT;
+	}
+
+	ecore_wl_window_class_name_set(wl_win, cxt->id);
 
 	*win = ret_win;
 	cxt->win = ret_win;
