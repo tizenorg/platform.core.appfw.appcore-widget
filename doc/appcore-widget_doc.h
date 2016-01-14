@@ -79,38 +79,38 @@
  *   <th> Description </th>
  * </tr>
  * <tr>
- *   <td> widget_obj_create_cb() </td>
+ *   <td> widget_instance_create_cb() </td>
  *   <td> Called after widget instance is created.
  *    In this callback, you can initialize resources for this instance.
  *    If parameter 'content' is not NULL, You should restore the pervious status.
  *   </td>
  * </tr>
  * <tr>
- *  <td> widget_obj_destroy_cb() </td>
+ *  <td> widget_instance_destroy_cb() </td>
  *  <td> Called before widget instance is destroyed.
  *   In this callback, you can finalize resources for this instance.
  *  </td>
  * </tr>
  * <tr>
- *  <td> widget_obj_pause_cb() </td>
+ *  <td> widget_instance_pause_cb() </td>
  *  <td> Called when the widget is invisible.
  *   The paused instance may be destroyed by framework
  *  </td>
  * </tr>
  * <tr>
- *  <td> widget_obj_resume_cb() </td>
+ *  <td> widget_instance_resume_cb() </td>
  *  <td> Called when the widget is visible.
  *   The callback function is called when the widget is visible.
  *  </td>
  * </tr>
  * <tr>
- *  <td> widget_obj_resize_cb() </td>
+ *  <td> widget_instance_resize_cb() </td>
  *  <td> Called before the widget size is changed.
  *   The callback function is called before the widget size is changed.
  *  </td>
  * </tr>
  * <tr>
- *  <td> widget_obj_update_cb() </td>
+ *  <td> widget_instance_update_cb() </td>
  *  <td> Called when the event for updating widget is received.
  *   The callback function is called when the event for updating widget is received.
  *  </td>
@@ -121,6 +121,9 @@
  * Please refer to the following state diagram to see the possible transitions and callbacks that are called while transition.
  * @image html widget_obj_lifecycle.png "Widget Instance States"
  *
+ * @section CAPI_WIDGET_APP_MODULE_RELATED_FEATURES Related Features
+ * This API is related with the following feature:
+ * - http://tizen.org/feature/shell.appwidget
  *
  *
  */
