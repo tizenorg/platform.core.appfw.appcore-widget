@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include <bundle.h>
+#include <bundle_internal.h>
 #include <aul.h>
 #include <dlog.h>
 #include <glib.h>
@@ -29,6 +30,8 @@
 #include <widget_errno.h>
 #include <widget_instance.h>
 #include <widget_service_internal.h>
+#include <aul_app_com.h>
+#include <Ecore_Wayland.h>
 
 #include "widget_app.h"
 #include "widget-log.h"
@@ -123,6 +126,8 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 
 	if (extra == NULL)
 		bundle_free(b);
+
+	return 0;
 }
 
 static int __instance_create(widget_class_h handle, const char *id, bundle *b)
