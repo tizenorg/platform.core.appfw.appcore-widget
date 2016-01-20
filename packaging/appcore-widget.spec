@@ -16,6 +16,7 @@ BuildRequires:  pkgconfig(capi-appfw-app-control)
 BuildRequires:  pkgconfig(capi-appfw-app-common)
 BuildRequires:  pkgconfig(widget_service)
 BuildRequires:  pkgconfig(capi-system-info)
+BuildRequires:	pkgconfig(launchpad)
 BuildRequires:  cmake
 
 
@@ -58,6 +59,8 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 %{_libdir}/libcapi-appfw-widget-application.so
 %{_libdir}/libcapi-appfw-widget-application.so.1
 %{_libdir}/libcapi-appfw-widget-application.so.1.1
+%caps(cap_mac_admin,cap_mac_override,cap_setgid=ei) %{_bindir}/widget-loader
+
 /usr/share/license/%{name}
 
 %files -n capi-appfw-widget-application-devel
