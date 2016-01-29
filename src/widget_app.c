@@ -431,6 +431,9 @@ EXPORT_API int widget_app_terminate_context(widget_context_h context)
 
 EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 {
+	if (!cb)
+		return WIDGET_ERROR_INVALID_PARAMETER;
+
 	return WIDGET_ERROR_NONE;
 }
 
@@ -439,18 +442,42 @@ EXPORT_API int widget_app_add_event_handler(app_event_handler_h *event_handler,
 					void *user_data)
 {
 	/* TODO */
-	return 0;
+	if (!event_handler || !callback)
+		return WIDGET_ERROR_INVALID_PARAMETER;
+
+	switch (event_type) {
+	case APP_EVENT_LOW_MEMORY:
+	case APP_EVENT_LOW_BATTERY:
+	case APP_EVENT_LANGUAGE_CHANGED:
+	case APP_EVENT_DEVICE_ORIENTATION_CHANGED:
+	case APP_EVENT_REGION_FORMAT_CHANGED:
+	case APP_EVENT_SUSPENDED_STATE_CHANGED:
+
+		break;
+	default:
+		return WIDGET_ERROR_INVALID_PARAMETER;
+	}
+
+	return WIDGET_ERROR_NONE;
 }
 
 EXPORT_API int widget_app_remove_event_handler(app_event_handler_h
 						event_handler)
 {
 	/* TODO */
-	return 0;
+	if (!event_handler)
+		return WIDGET_ERROR_INVALID_PARAMETER;
+
+	return WIDGET_ERROR_NONE;
 }
 
 EXPORT_API const char* widget_app_get_id(widget_context_h context)
 {
+	if (!context) {
+		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		return NULL;
+	}
+
 	return context->id;
 }
 
@@ -574,8 +601,12 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context, bun
 EXPORT_API int widget_app_context_set_title(widget_context_h context, const char *title)
 {
 	/* TODO
-	 may use widget status update, or use surface title set.
+	 call elm_win_title_set()
 	 */
-	return 0;
+
+	if (!context || !title)
+		return WIDGET_ERROR_INVALID_PARAMETER;
+
+	return WIDGET_ERROR_NONE;
 }
 
