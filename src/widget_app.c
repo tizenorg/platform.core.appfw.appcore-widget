@@ -32,6 +32,7 @@
 #include <widget_service_internal.h>
 #include <aul_app_com.h>
 #include <Ecore_Wayland.h>
+#include <system_info.h>
 
 #include "widget_app.h"
 #include "widget-log.h"
@@ -92,6 +93,27 @@ static char *appid = NULL;
 static widget_class_h class_provider = NULL;
 static GList *contexts = NULL;
 static char *viewer_endpoint = NULL;
+
+static inline bool _is_widget_feature_enabled(void)
+{
+	static bool feature = false;
+	static bool retrieved = false;
+	int ret;
+
+	if (retrieved == true)
+		return feature;
+
+	ret = system_info_get_platform_bool(
+			"http://tizen.org/feature/shell.appwidget", &feature);
+	if (ret != SYSTEM_INFO_ERROR_NONE) {
+		_E("failed to get system info");
+		return false;
+	}
+
+	retrieved = true;
+
+	return feature;
+}
 
 static gint __comp_by_id(gconstpointer a, gconstpointer b)
 {
@@ -369,6 +391,11 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 {
 	int r;
 
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	if (argc <= 0 || argv == NULL || callback == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -390,6 +417,11 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 
 EXPORT_API int widget_app_exit(void)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	ecore_main_loop_quit();
 
 	return WIDGET_ERROR_NONE;
@@ -422,6 +454,11 @@ static gboolean __finish_event_cb(gpointer user_data)
 
 EXPORT_API int widget_app_terminate_context(widget_context_h context)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	if (context == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -431,6 +468,11 @@ EXPORT_API int widget_app_terminate_context(widget_context_h context)
 
 EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	if (!cb)
 		return WIDGET_ERROR_INVALID_PARAMETER;
 
@@ -441,6 +483,11 @@ EXPORT_API int widget_app_add_event_handler(app_event_handler_h *event_handler,
 					app_event_type_e event_type, app_event_cb callback,
 					void *user_data)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	/* TODO */
 	if (!event_handler || !callback)
 		return WIDGET_ERROR_INVALID_PARAMETER;
@@ -464,6 +511,11 @@ EXPORT_API int widget_app_add_event_handler(app_event_handler_h *event_handler,
 EXPORT_API int widget_app_remove_event_handler(app_event_handler_h
 						event_handler)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	/* TODO */
 	if (!event_handler)
 		return WIDGET_ERROR_INVALID_PARAMETER;
@@ -473,6 +525,12 @@ EXPORT_API int widget_app_remove_event_handler(app_event_handler_h
 
 EXPORT_API const char* widget_app_get_id(widget_context_h context)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
+		return NULL;
+	}
+
 	if (!context) {
 		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
 		return NULL;
@@ -484,12 +542,17 @@ EXPORT_API const char* widget_app_get_id(widget_context_h context)
 EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 					Evas_Object **win)
 {
-	if (context == NULL || win == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
-
 	widget_context_s *cxt = (widget_context_s*)context;
 	Evas_Object *ret_win;
 	Ecore_Wl_Window *wl_win;
+
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
+	if (context == NULL || win == NULL)
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
 	ret_win = elm_win_add(NULL, cxt->id, ELM_WIN_BASIC);
 	if (ret_win == NULL) {
@@ -515,6 +578,12 @@ EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
+		return NULL;
+	}
+
 	widget_class_s *wc = (widget_class_s*)malloc(sizeof(widget_class_s));
 
 	if (wc == NULL) {
@@ -540,6 +609,12 @@ widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class, const char *class_id,
 		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		return NULL;
+	}
+
 	if (class_id == NULL) {
 		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
 		return NULL;
@@ -550,11 +625,21 @@ EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class, cons
 
 EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data)
 {
+	if (!_is_widget_feature_enabled()) {
+		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		return NULL;
+	}
+
 	return _widget_class_create(class_provider, appid, callback, user_data);
 }
 
 EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	if (context == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -565,6 +650,11 @@ EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 
 EXPORT_API int widget_app_context_get_tag(widget_context_h context, void **tag)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	if (context == NULL || tag == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -577,6 +667,12 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context, bun
 {
 	const char *class_id = NULL;
 	int ret = 0;
+
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	if (context == NULL || content_info == NULL)
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
@@ -600,6 +696,11 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context, bun
 
 EXPORT_API int widget_app_context_set_title(widget_context_h context, const char *title)
 {
+	if (!_is_widget_feature_enabled()) {
+		_E("not supported");
+		return WIDGET_ERROR_NOT_SUPPORTED;
+	}
+
 	/* TODO
 	 call elm_win_title_set()
 	 */
