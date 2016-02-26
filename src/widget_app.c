@@ -119,7 +119,7 @@ static gint __comp_by_id(gconstpointer a, gconstpointer b)
 {
 	widget_context_s *wc = (widget_context_s*)a;
 
- 	return strcmp(wc->id, (const char*)b);
+	return strcmp(wc->id, (const char*)b);
 }
 
 static widget_context_s* __find_context_by_id(const char *id)
@@ -611,7 +611,7 @@ EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class, cons
 {
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
-		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
 		return NULL;
 	}
 
@@ -626,7 +626,7 @@ EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class, cons
 EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data)
 {
 	if (!_is_widget_feature_enabled()) {
-		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
 		return NULL;
 	}
 
