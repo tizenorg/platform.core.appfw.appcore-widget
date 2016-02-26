@@ -119,7 +119,7 @@ static gint __comp_by_id(gconstpointer a, gconstpointer b)
 {
 	widget_context_s *wc = (widget_context_s*)a;
 
- 	return strcmp(wc->id, (const char*)b);
+	return strcmp(wc->id, (const char*)b);
 }
 
 static widget_context_s* __find_context_by_id(const char *id)
@@ -578,14 +578,20 @@ EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
+	widget_class_s *wc;
+
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
 		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
 		return NULL;
 	}
 
-	widget_class_s *wc = (widget_class_s*)malloc(sizeof(widget_class_s));
+	if (class_id == NULL) {
+		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
+		return NULL;
+	}
 
+	wc = (widget_class_s*)malloc(sizeof(widget_class_s));
 	if (wc == NULL) {
 		_E("failed to malloc : %s", __FUNCTION__);
 		set_last_result(WIDGET_ERROR_OUT_OF_MEMORY);
@@ -609,27 +615,11 @@ widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class, const char *class_id,
 		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
-	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
-		return NULL;
-	}
-
-	if (class_id == NULL) {
-		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
-		return NULL;
-	}
-
 	return _widget_class_create(widget_class, class_id, callback, user_data);
 }
 
 EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data)
 {
-	if (!_is_widget_feature_enabled()) {
-		set_last_result(WIDGET_ERROR_INVALID_PARAMETER);
-		return NULL;
-	}
-
 	return _widget_class_create(class_provider, appid, callback, user_data);
 }
 
