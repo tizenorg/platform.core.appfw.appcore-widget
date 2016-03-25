@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2015 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -33,18 +33,17 @@
 
 void _update_lang(void)
 {
+	char *r;
 	char *lang = vconf_get_str(VCONFKEY_LANGSET);
 	if (lang) {
 		setenv("LANG", lang, 1);
 		setenv("LC_MESSAGES", lang, 1);
 
-		char *r = setlocale(LC_ALL, "");
+		r = setlocale(LC_ALL, "");
 		if (r == NULL) {
 			r = setlocale(LC_ALL, lang);
-
 			if (r)
 				_D("*****appcore setlocale=%s\n", r);
-
 		}
 		free(lang);
 	} else {
@@ -70,8 +69,8 @@ void _update_region(void)
 		setenv("LC_TELEPHONE", region, 1);
 		setenv("LC_MEASUREMENT", region, 1);
 		setenv("LC_IDENTIFICATION", region, 1);
-		r = setlocale(LC_ALL, "");
 
+		r = setlocale(LC_ALL, "");
 		if (r != NULL)
 			_D("*****appcore setlocale=%s\n", r);
 
@@ -85,6 +84,7 @@ static int __set_i18n(const char *domain)
 {
 	char *r;
 	char dirname[PATH_MAX] = {0, };
+	char *lang;
 
 	if (domain == NULL) {
 		errno = EINVAL;
@@ -97,15 +97,13 @@ static int __set_i18n(const char *domain)
 	r = setlocale(LC_ALL, "");
 	/* if locale is not set properly, try again to set as language base */
 	if (r == NULL) {
-		char *lang = vconf_get_str(VCONFKEY_LANGSET);
+		lang = vconf_get_str(VCONFKEY_LANGSET);
 		r = setlocale(LC_ALL, lang);
-
 		if (r)
 			_D("*****appcore setlocale=%s\n", r);
 
 		if (lang)
 			free(lang);
-
 	}
 	if (r == NULL)
 		_E("appcore: setlocale() error");
