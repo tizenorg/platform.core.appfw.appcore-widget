@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2015 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -27,18 +27,14 @@ extern "C" {
  * For in-house applications
  *
  */
-
-typedef struct
-{
-	struct __pointer
-	{
+typedef struct {
+	struct __pointer {
 		double x;
 		double y;
 		int down;
 	} pointer;
 
-	struct __part
-	{
+	struct __part {
 		double sx;
 		double sy;
 		double ex;
@@ -47,28 +43,25 @@ typedef struct
 
 } widget_obj_event_info_s;
 
-typedef int (*widget_instance_text_signal_cb)(widget_context_h context, const char *signal_name,
-        const char *source, widget_obj_event_info_s *info, void *user_data);
+typedef int (*widget_instance_text_signal_cb)(widget_context_h context,
+		const char *signal_name, const char *source,
+		widget_obj_event_info_s * info, void *user_data);
 
-typedef struct _widget_obj_private_ops
-{
+typedef struct _widget_obj_private_ops {
 	widget_instance_text_signal_cb text_signal;
 } widget_obj_private_ops_s;
 
 typedef struct _widget_class_factory_full widget_class_factory_full_s;
-typedef const widget_class_factory_full_s* (*widget_class_factory_override_text_signal)(widget_instance_text_signal_cb op);
-
+typedef const widget_class_factory_full_s *(*widget_class_factory_override_text_signal)(widget_instance_text_signal_cb op);
 typedef widget_class_h (*_widget_class_factory_operation_make)(widget_instance_lifecycle_callback_s callback);
 
-struct _widget_class_factory_full
-{
+struct _widget_class_factory_full {
 	widget_class_factory_override_text_signal override_text_signal;
 };
 
-const widget_class_factory_full_s* widget_app_get_class_factory(void);
+const widget_class_factory_full_s *widget_app_get_class_factory(void);
 
 #ifdef __cplusplus
 }
 #endif
-
 #endif
