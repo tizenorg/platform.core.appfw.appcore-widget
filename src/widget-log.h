@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2015 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -77,5 +77,4 @@
         } \
     } while (0)
 
-
-#endif //__APPFW_WIDGET_LOG_H_
+#endif /* __APPFW_WIDGET_LOG_H_ */
