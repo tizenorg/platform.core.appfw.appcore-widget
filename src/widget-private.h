@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2015 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,11 @@
 
 #define FEATURE_SHELL_APPWIDGET "http://tizen.org/feature/shell.appwidget"
 
-
 int _set_i18n(const char *domainname);
 void _update_lang(void);
 void _update_region(void);
-int widget_app_error(widget_error_e error, const char* function, const char *description);
+int widget_app_error(widget_error_e error, const char *function,
+		const char *description);
 
 #endif /* __APPCORE_WIDGET_PRIVATE_H__ */
+

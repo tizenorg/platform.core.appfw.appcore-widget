@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2015 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -117,14 +117,14 @@ static inline bool _is_widget_feature_enabled(void)
 
 static gint __comp_by_id(gconstpointer a, gconstpointer b)
 {
-	widget_context_s *wc = (widget_context_s*)a;
+	widget_context_s *wc = (widget_context_s *)a;
 
-	return strcmp(wc->id, (const char*)b);
+	return strcmp(wc->id, (const char *)b);
 }
 
-static widget_context_s* __find_context_by_id(const char *id)
+static widget_context_s *__find_context_by_id(const char *id)
 {
-	GList* ret = g_list_find_custom(contexts, id, __comp_by_id);
+	GList *ret = g_list_find_custom(contexts, id, __comp_by_id);
 
 	if (ret == NULL)
 		return NULL;
@@ -183,21 +183,25 @@ static int __instance_create(widget_class_h handle, const char *id, bundle *b)
 	contexts = g_list_append(contexts, wc);
 
 	handle->ops.create(wc, b, w, h, handle->user_data);
-	ret = __send_update_status(handle->classid, wc->id, WIDGET_INSTANCE_EVENT_CREATE, b, 0);
+	ret = __send_update_status(handle->classid, wc->id,
+			WIDGET_INSTANCE_EVENT_CREATE, b, 0);
 
 	return ret;
 }
 
-static int __instance_destroy(widget_class_h handle, const char *id, widget_destroy_type_e reason, bundle *b)
+static int __instance_destroy(widget_class_h handle, const char *id,
+		widget_destroy_type_e reason, bundle *b)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret = 0;
 
 	if (wc) {
 		wc->state = WC_TERMINATED;
-		handle->ops.destroy(wc, (widget_app_destroy_type_e)reason, b, handle->user_data);
+		handle->ops.destroy(wc, (widget_app_destroy_type_e)reason, b,
+				handle->user_data);
 
-		ret = __send_update_status(handle->classid, id, WIDGET_INSTANCE_EVENT_TERMINATE, b, 0);
+		ret = __send_update_status(handle->classid, id,
+				WIDGET_INSTANCE_EVENT_TERMINATE, b, 0);
 
 		contexts = g_list_remove(contexts, wc);
 
@@ -212,7 +216,8 @@ static int __instance_destroy(widget_class_h handle, const char *id, widget_dest
 	return ret;
 }
 
-static widget_class_h __find_class_handler(const char *class_id, widget_class_h handle)
+static widget_class_h __find_class_handler(const char *class_id,
+		widget_class_h handle)
 {
 	if (!class_id || !handle)
 		return NULL;
@@ -267,7 +272,8 @@ static void __control(bundle *b)
 	} else if (strcmp(operation, "destroy") == 0) {
 		bundle_get_str(b, WIDGET_K_REASON, &reason);
 		if (reason)
-			destroy_type = (int)g_ascii_strtoll(reason, &remain, 10);
+			destroy_type = (int)g_ascii_strtoll(reason, &remain,
+					10);
 
 		__instance_destroy(handle, id, destroy_type, b);
 	} else if (strcmp(operation, "resume") == 0) {
@@ -296,9 +302,10 @@ static int __aul_handler(aul_type type, bundle *b, void *data)
 	case AUL_START:
 		if (b) {
 			bundle_get_str(b, WIDGET_K_CALLER, &caller);
-			if (caller)
-				caller_pid = g_ascii_strtoll(caller, &remain, 10);
-			else {
+			if (caller) {
+				caller_pid = g_ascii_strtoll(caller, &remain,
+						10);
+			} else {
 				/* using caller appid and query pid using caller appid? */
 				_E("no caller pid");
 			}
@@ -359,14 +366,16 @@ static int __before_loop(int argc, char **argv)
 
 	r = aul_launch_init(__aul_handler, NULL);
 	if (r < 0) {
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
-					"Fail to call the aul_launch_init");
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__,
+				"Fail to call the aul_launch_init");
 	}
 
 	r = aul_launch_argv_handler(argc, argv);
 	if (r < 0) {
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
-					"Fail to call the aul_launch_argv_handler");
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__,
+				"Fail to call the aul_launch_argv_handler");
 	}
 
 	r = app_get_id(&appid);
@@ -375,8 +384,8 @@ static int __before_loop(int argc, char **argv)
 
 	class_provider = app_ops->create(app_user_data);
 	if (class_provider == NULL) {
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__,
-					"widget_class is NULL");
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, "widget_class is NULL");
 	}
 
 	return WIDGET_ERROR_NONE;
@@ -394,7 +403,7 @@ static void __after_loop()
 }
 
 EXPORT_API int widget_app_main(int argc, char **argv,
-				widget_app_lifecycle_callback_s *callback, void *user_data)
+		widget_app_lifecycle_callback_s *callback, void *user_data)
 {
 	int r;
 
@@ -404,10 +413,14 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 	}
 
 	if (argc <= 0 || argv == NULL || callback == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	if (callback->create == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, "widget_app_create_cb() callback must be registered");
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__,
+				"widget_app_create_cb() callback must be "
+				"registered");
 
 	app_ops = callback;
 	app_user_data = user_data;
@@ -467,7 +480,8 @@ EXPORT_API int widget_app_terminate_context(widget_context_h context)
 	}
 
 	if (context == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	g_idle_add(__finish_event_cb, context);
 	return WIDGET_ERROR_NONE;
@@ -487,8 +501,8 @@ EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 }
 
 EXPORT_API int widget_app_add_event_handler(app_event_handler_h *event_handler,
-					app_event_type_e event_type, app_event_cb callback,
-					void *user_data)
+		app_event_type_e event_type, app_event_cb callback,
+		void *user_data)
 {
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
@@ -530,7 +544,7 @@ EXPORT_API int widget_app_remove_event_handler(app_event_handler_h
 	return WIDGET_ERROR_NONE;
 }
 
-EXPORT_API const char* widget_app_get_id(widget_context_h context)
+EXPORT_API const char *widget_app_get_id(widget_context_h context)
 {
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
@@ -549,7 +563,7 @@ EXPORT_API const char* widget_app_get_id(widget_context_h context)
 EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 					Evas_Object **win)
 {
-	widget_context_s *cxt = (widget_context_s*)context;
+	widget_context_s *cxt = (widget_context_s *)context;
 	Evas_Object *ret_win;
 	Ecore_Wl_Window *wl_win;
 
@@ -559,7 +573,8 @@ EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 	}
 
 	if (context == NULL || win == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	ret_win = elm_win_add(NULL, cxt->id, ELM_WIN_BASIC);
 	if (ret_win == NULL) {
@@ -619,13 +634,16 @@ widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 	return wc;
 }
 
-EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class, const char *class_id,
+EXPORT_API widget_class_h widget_app_class_add(widget_class_h widget_class,
+		const char *class_id,
 		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
-	return _widget_class_create(widget_class, class_id, callback, user_data);
+	return _widget_class_create(widget_class, class_id, callback,
+			user_data);
 }
 
-EXPORT_API widget_class_h widget_app_class_create(widget_instance_lifecycle_callback_s callback, void *user_data)
+EXPORT_API widget_class_h widget_app_class_create(
+		widget_instance_lifecycle_callback_s callback, void *user_data)
 {
 	return _widget_class_create(class_provider, appid, callback, user_data);
 }
@@ -638,7 +656,8 @@ EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 	}
 
 	if (context == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	context->tag = tag;
 
@@ -653,14 +672,16 @@ EXPORT_API int widget_app_context_get_tag(widget_context_h context, void **tag)
 	}
 
 	if (context == NULL || tag == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	*tag = context->tag;
 
 	return WIDGET_ERROR_NONE;
 }
 
-EXPORT_API int widget_app_context_set_content_info(widget_context_h context, bundle *content_info)
+EXPORT_API int widget_app_context_set_content_info(widget_context_h context,
+		bundle *content_info)
 {
 	const char *class_id = NULL;
 	int ret = 0;
@@ -671,27 +692,33 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context, bun
 	}
 
 	if (context == NULL || content_info == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	if (context->provider == NULL)
-		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__, NULL);
 
 	class_id = context->provider->classid;
 
 	if (class_id == NULL)
 		return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
 
-	ret = __send_update_status(class_id, context->id, WIDGET_INSTANCE_EVENT_UPDATE, content_info, true);
+	ret = __send_update_status(class_id, context->id,
+			WIDGET_INSTANCE_EVENT_UPDATE, content_info, true);
 
 	if (ret < 0) {
-		_E("failed to send content info: %s of %s (%d)", context->id, class_id, ret);
-		return widget_app_error(WIDGET_ERROR_IO_ERROR, __FUNCTION__, NULL);
+		_E("failed to send content info: %s of %s (%d)", context->id,
+				class_id, ret);
+		return widget_app_error(WIDGET_ERROR_IO_ERROR, __FUNCTION__,
+				NULL);
 	}
 
 	return WIDGET_ERROR_NONE;
 }
 
-EXPORT_API int widget_app_context_set_title(widget_context_h context, const char *title)
+EXPORT_API int widget_app_context_set_title(widget_context_h context,
+		const char *title)
 {
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
