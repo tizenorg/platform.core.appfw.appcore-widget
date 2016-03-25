@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2015 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -51,13 +51,13 @@ typedef enum widget_app_destroy_type {
  * @brief The handle for widget class.
  * @since_tizen 2.3.1
  */
-typedef struct _widget_class* widget_class_h;
+typedef struct _widget_class *widget_class_h;
 
 /**
  * @brief The handle for widget context.
  * @since_tizen 2.3.1
  */
-typedef struct _widget_context* widget_context_h;
+typedef struct _widget_context *widget_context_h;
 
 /**
  * @brief Called when the widget instance starts.
@@ -164,8 +164,7 @@ typedef int (*widget_instance_update_cb)(widget_context_h context, bundle *conte
  * @brief The structure for lifecycle of a widget instance.
  * @since_tizen 2.3.1
  */
-typedef struct
-{
+typedef struct {
 	widget_instance_create_cb create; /**< The callback function is called after widget instance is created. */
 	widget_instance_destroy_cb destroy; /**< The callback function is called before widget instance is destroyed. */
 	widget_instance_pause_cb pause; /**< The callback function is called when the widget is invisible. */
@@ -213,8 +212,7 @@ typedef void (*widget_app_terminate_cb)(void *user_data);
  * @brief The structure for lifecycle of a widget application.
  * @since_tizen 2.3.1
  */
-typedef struct
-{
+typedef struct {
 	widget_app_create_cb create; /**< The callback function is called before the main loop of the application starts. */
 	widget_app_terminate_cb terminate; /**< This callback function is called once after the main loop of the application exits. */
 } widget_app_lifecycle_callback_s;
@@ -321,7 +319,7 @@ int widget_app_foreach_context(widget_context_cb callback, void *data);
  * @see watch_app_remove_event_handler()
  */
 int widget_app_add_event_handler(app_event_handler_h *event_handler, app_event_type_e event_type,
-                                 app_event_cb callback, void *user_data);
+		app_event_cb callback, void *user_data);
 
 /**
  * @brief Removes registered event handler.
@@ -352,7 +350,7 @@ int widget_app_remove_event_handler(app_event_handler_h event_handler);
  * @remark You must not free returned Widget ID
  * @see get_last_result()
  */
-const char* widget_app_get_id(widget_context_h context);
+const char *widget_app_get_id(widget_context_h context);
 
 /**
  * @brief Makes a class for widget instances.
@@ -456,3 +454,4 @@ widget_class_h widget_app_class_add(widget_class_h widget_class, const char *cla
 #endif
 
 #endif /* __TIZEN_APPFW_WIDGET_APP_H__ */
+
