@@ -336,8 +336,12 @@ static int __before_loop(int argc, char **argv)
 		bundle_get_str(kb, AUL_K_WAYLAND_WORKING_DIR, &xdg_runtime_dir);
 		bundle_get_str(kb, AUL_K_WAYLAND_DISPLAY, &wayland_display);
 		bundle_get_str(kb, WIDGET_K_ENDPOINT, &viewer_endpoint);
-		_E("viewer endpoint :%s", viewer_endpoint);
-		viewer_endpoint = strdup(viewer_endpoint);
+		if (viewer_endpoint) {
+			_E("viewer endpoint :%s", viewer_endpoint);
+			viewer_endpoint = strdup(viewer_endpoint);
+		} else {
+			_E("endpoint is missing");
+		}
 
 		if (xdg_runtime_dir)
 			setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1);
