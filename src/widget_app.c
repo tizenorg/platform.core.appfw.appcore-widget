@@ -144,6 +144,7 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 	bundle_add_str(b, WIDGET_K_INSTANCE, instance_id);
 	bundle_add_byte(b, WIDGET_K_STATUS, &status, sizeof(int));
 
+	_E("send update %s(%d) to %s", instance_id, status, viewer_endpoint);
 	aul_app_com_send(viewer_endpoint, b);
 
 	if (extra == NULL)
@@ -182,7 +183,6 @@ static int __instance_create(widget_class_h handle, const char *id, bundle *b)
 	contexts = g_list_append(contexts, wc);
 
 	handle->ops.create(wc, b, w, h, handle->user_data);
-
 	ret = __send_update_status(handle->classid, wc->id, WIDGET_INSTANCE_EVENT_CREATE, b, 0);
 
 	return ret;
@@ -336,6 +336,8 @@ static int __before_loop(int argc, char **argv)
 		bundle_get_str(kb, AUL_K_WAYLAND_WORKING_DIR, &xdg_runtime_dir);
 		bundle_get_str(kb, AUL_K_WAYLAND_DISPLAY, &wayland_display);
 		bundle_get_str(kb, WIDGET_K_ENDPOINT, &viewer_endpoint);
+		_E("viewer endpoint :%s", viewer_endpoint);
+		viewer_endpoint = strdup(viewer_endpoint);
 
 		if (xdg_runtime_dir)
 			setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1);
@@ -380,6 +382,9 @@ static void __after_loop()
 {
 	if (app_ops->terminate)
 		app_ops->terminate(app_user_data);
+
+	if (viewer_endpoint)
+		free(viewer_endpoint);
 
 	elm_shutdown();
 }
