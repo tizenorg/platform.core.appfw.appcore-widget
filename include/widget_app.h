@@ -38,13 +38,8 @@ extern "C" {
  * @since_tizen 2.3.1
  */
 typedef enum widget_app_destroy_type {
-	WIDGET_APP_DESTROY_TYPE_DEFAULT = 0x00,   /**< Deleted */
-	WIDGET_APP_DESTROY_TYPE_UPGRADE = 0x01,   /**< Deleted for upgrading */
-	WIDGET_APP_DESTROY_TYPE_UNINSTALL = 0x02, /**< Deleted by uninstalling */
-	WIDGET_APP_DESTROY_TYPE_TERMINATE = 0x03, /**< Deleted for reboot device */
-	WIDGET_APP_DESTROY_TYPE_FAULT = 0x04,     /**< Deleted by system-fault */
-	WIDGET_APP_DESTROY_TYPE_TEMPORARY = 0x05, /**< Temporarly deleted, will be created again */
-	WIDGET_APP_DESTROY_TYPE_UNKNOWN = 0x06    /**< Undefined reason */
+	WIDGET_APP_DESTROY_TYPE_PERMANENT = 0x00, /* User deleted this widget from the viewer */
+	WIDGET_APP_DESTROY_TYPE_TEMPORARY = 0x01, /* Widget is deleted because of other reasons (e.g. widget process is terminated temporarily by the system) */
 } widget_app_destroy_type_e; /**< Delete type */
 
 /**
@@ -83,7 +78,7 @@ typedef int (*widget_instance_create_cb)(widget_context_h context, bundle *conte
  *
  * @details The callback function is called before widget instance is destroyed.
  *          In this callback, you can finalize resources for this instance.
- *          If reason is not #WIDGET_APP_DESTROY_TYPE_DEFAULT, It should store the current status by using incoming bundle.
+ *          If reason is not #WIDGET_APP_DESTROY_TYPE_TEMPORARY, It should store the current status by using incoming bundle.
  *
  * @param[in] context The context of widget instance.
  * @param[in] reason The reason for destruction
