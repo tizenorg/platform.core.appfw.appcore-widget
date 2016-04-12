@@ -326,6 +326,28 @@ static int __aul_handler(aul_type type, bundle *b, void *data)
 	return 0;
 }
 
+static char *__get_domain_name(char *appid)
+{
+	char *name_token;
+
+	if (appid == NULL) {
+		_E("appid is NULL");
+		return NULL;
+	}
+
+	name_token = strrchr(appid, '.');
+
+	if (name_token == NULL) {
+		_E("appid is invalid");
+		return appid;
+	}
+
+	name_token++;
+
+	return name_token;
+}
+
+extern int _set_i18n(const char *name);
 
 static int __before_loop(int argc, char **argv)
 {
@@ -333,6 +355,7 @@ static int __before_loop(int argc, char **argv)
 	bundle *kb = NULL;
 	char *wayland_display = NULL;
 	char *xdg_runtime_dir = NULL;
+	char *name;
 
 #if !(GLIB_CHECK_VERSION(2, 36, 0))
 	g_type_init();
@@ -381,6 +404,22 @@ static int __before_loop(int argc, char **argv)
 	r = app_get_id(&appid);
 	if (r != APP_ERROR_NONE)
 		return r;
+
+	name = __get_domain_name(appid);
+
+	if (name == NULL) {
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__,
+				"Fail to call __get_domain_name");
+	}
+
+	r = _set_i18n(name);
+
+	if (r < 0) {
+		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
+				__FUNCTION__,
+				"Fail to call _set_i18n");
+	}
 
 	class_provider = app_ops->create(app_user_data);
 	if (class_provider == NULL) {
