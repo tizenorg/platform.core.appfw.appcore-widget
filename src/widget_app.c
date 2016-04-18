@@ -293,6 +293,41 @@ static void __show_all()
 	LOGD("resume");
 }
 
+static Eina_Bool __show_cb(void *data, int type, void *event)
+{
+	Ecore_Wl_Event_Window_Show *ev = event;
+	LOGD("show %d %d", (unsigned int)ev->win, (unsigned int)ev->data[0]);
+	return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool __hide_cb(void *data, int type, void *event)
+{
+	Ecore_Wl_Event_Window_Hide *ev = event;
+	LOGD("hide %d", (unsigned int)ev->win);
+	return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool __visibility_cb(void *data, int type, void *event)
+{
+	Ecore_Wl_Event_Window_Visibility_Change *ev = event;
+	LOGD("visiblity change: %d %d", (unsigned int)ev->win,  (unsigned int)ev->fully_obscured);
+	return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool __lower_cb(void *data, int type, void *event)
+{
+	LOGD("lower");
+	return ECORE_CALLBACK_RENEW;
+}
+
+static void __add_climsg()
+{
+	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_SHOW, __show_cb, NULL);
+	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_HIDE, __hide_cb, NULL);
+	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_VISIBILITY_CHANGE, __visibility_cb, NULL);
+	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_LOWER, __lower_cb, NULL);
+}
+
 static int __aul_handler(aul_type type, bundle *b, void *data)
 {
 	char *caller = NULL;
@@ -421,6 +456,8 @@ static int __before_loop(int argc, char **argv)
 				"Fail to call _set_i18n");
 	}
 
+	__add_climsg();
+
 	class_provider = app_ops->create(app_user_data);
 	if (class_provider == NULL) {
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
@@ -528,6 +565,9 @@ EXPORT_API int widget_app_terminate_context(widget_context_h context)
 
 EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 {
+	GList *list;
+	widget_context_s *wc;
+
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
 		return WIDGET_ERROR_NOT_SUPPORTED;
@@ -535,6 +575,17 @@ EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 
 	if (!cb)
 		return WIDGET_ERROR_INVALID_PARAMETER;
+
+	list = g_list_first(contexts);
+
+	while (list) {
+		wc = (widget_context_s *)list->data;
+		if (wc) {
+			if (!cb(wc, data))
+				break;
+		}
+		list = list->next;
+	}
 
 	return WIDGET_ERROR_NONE;
 }
