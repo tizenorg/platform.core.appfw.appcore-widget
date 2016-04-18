@@ -596,6 +596,7 @@ EXPORT_API const char *widget_app_get_id(widget_context_h context)
 		return NULL;
 	}
 
+	set_last_result(WIDGET_ERROR_NONE);
 	return context->id;
 }
 
