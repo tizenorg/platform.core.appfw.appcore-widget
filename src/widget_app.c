@@ -816,12 +816,11 @@ EXPORT_API int widget_app_context_set_title(widget_context_h context,
 		return WIDGET_ERROR_NOT_SUPPORTED;
 	}
 
-	/* TODO
-	 call elm_win_title_set()
-	 */
-
 	if (!context || !title)
 		return WIDGET_ERROR_INVALID_PARAMETER;
+
+	if (context->win)
+		elm_win_title_set(context->win, title);
 
 	return WIDGET_ERROR_NONE;
 }
