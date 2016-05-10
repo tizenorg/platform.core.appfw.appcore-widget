@@ -34,6 +34,7 @@ pkg_check_modules(pkg_widget REQUIRED
 		aul
 		dlog
 		capi-appfw-app-control
+		appcore-common
 		capi-appfw-app-common
 		vconf
 		elementary
