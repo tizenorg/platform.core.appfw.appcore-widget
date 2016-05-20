@@ -247,6 +247,16 @@ static int __instance_resume(widget_class_h handle, const char *id, bundle *b)
 	int ret;
 
 	if (wc) {
+		if (wc->state == WC_RUNNING) {
+			_D("%s is already in running state", id);
+			return 0;
+		}
+
+		if (wc->state == WC_TERMINATED) {
+			_D("%s is in terminated state", id);
+			return 0;
+		}
+
 		if (handle->ops.resume)
 			handle->ops.resume(wc, handle->user_data);
 
@@ -268,6 +278,15 @@ static int __instance_pause(widget_class_h handle, const char *id, bundle *b)
 	int ret;
 
 	if (wc) {
+		if (wc->state == WC_PAUSED) {
+			_D("%s is already in paused state", id);
+			return 0;
+		}
+
+		if (wc->state == WC_TERMINATED) {
+			_D("%s is in terminated state", id);
+			return 0;
+		}
 		if (handle->ops.pause)
 			handle->ops.pause(wc, handle->user_data);
 
@@ -283,32 +302,15 @@ static int __instance_pause(widget_class_h handle, const char *id, bundle *b)
 	return ret;
 }
 
-static int __instance_resize(widget_class_h handle, const char *id, bundle *b)
+static int __instance_resize(widget_class_h handle, const char *id, int w, int h, bundle *b)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret;
-	int w;
-	int h;
-	char *w_str = NULL;
-	char *h_str = NULL;
-	char *remain = NULL;
 
 	if (wc) {
-		bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
-		bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
-
-		if (w_str)
-			w = (int)g_ascii_strtoll(w_str, &remain, 10);
-		else
-			w = -1;
-
-		if (h_str)
-			h = (int)g_ascii_strtoll(h_str, &remain, 10);
-		else
-			h = -1;
-
 		if (handle->ops.resize)
 			handle->ops.resize(wc, w, h, handle->user_data);
+
 		_D("%s is resized to %dx%d", id, w, h);
 		ret = __send_update_status(handle->classid, wc->id,
 			WIDGET_INSTANCE_EVENT_SIZE_CHANGED, NULL, 0);
@@ -432,6 +434,38 @@ static widget_class_h __find_class_handler(const char *class_id,
 	return NULL;
 }
 
+static void __resize_window(char *id, bundle *b)
+{
+	widget_context_s *wc = __find_context_by_id(id);
+	char *w_str = NULL;
+	char *h_str = NULL;
+	char *remain = NULL;
+	int w;
+	int h;
+
+	bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
+	bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
+
+	if (w_str) {
+		w = (int)g_ascii_strtoll(w_str, &remain, 10);
+	} else {
+		_E("unable to get width");
+		return;
+	}
+
+	if (h_str) {
+		h = (int)g_ascii_strtoll(h_str, &remain, 10);
+	} else {
+		_E("unable to get height");
+		return;
+	}
+
+	if (wc->win)
+		evas_object_resize(wc->win, w, h);
+	else
+		_E("unable to find window of %d", wc->id);
+}
+
 static void __control(bundle *b)
 {
 	char *class_id = NULL;
@@ -464,7 +498,7 @@ static void __control(bundle *b)
 	if (strcmp(operation, "create") == 0) {
 		__instance_create(handle, id, b);
 	} else if (strcmp(operation, "resize") == 0) {
-		__instance_resize(handle, id, b);
+		__resize_window(id, b);
 	} else if (strcmp(operation, "update") == 0) {
 		__instance_update(handle, id, b);
 	} else if (strcmp(operation, "destroy") == 0) {
@@ -582,8 +616,22 @@ static Eina_Bool __hide_cb(void *data, int type, void *event)
 static Eina_Bool __visibility_cb(void *data, int type, void *event)
 {
 	Ecore_Wl_Event_Window_Visibility_Change *ev = event;
+	widget_context_s *cxt = __find_context_by_win(ev->win);
+
 	LOGD("visiblity change: %d %d", (unsigned int)ev->win,  (unsigned int)ev->fully_obscured);
-	/* this is not working so far*/
+
+	if (cxt) {
+		if (cxt->state == WC_PAUSED && ev->fully_obscured == 0) {
+			__instance_resume(cxt->provider, cxt->id, NULL);
+		} else if (cxt->state == WC_RUNNING && ev->fully_obscured == 1) {
+			__instance_pause(cxt->provider, cxt->id, NULL);
+		} else {
+			LOGD("cxt:%s state:%d obscured:%d", cxt->id, cxt->state, ev->fully_obscured);
+		}
+	} else {
+		LOGE("unknown window error: %d", ev->win);
+	}
+
 	return ECORE_CALLBACK_RENEW;
 }
 
@@ -593,12 +641,31 @@ static Eina_Bool __lower_cb(void *data, int type, void *event)
 	return ECORE_CALLBACK_RENEW;
 }
 
+static Eina_Bool __configure_cb(void *data, int type, void *event)
+{
+	Ecore_Wl_Event_Window_Configure *ev = event;
+	widget_context_s *cxt = __find_context_by_win(ev->win);
+
+	LOGD("configure: %d %d", ev->w, ev->h);
+
+	if (cxt) {
+		if (cxt->state == WC_PAUSED || cxt->state == WC_RUNNING)
+			__instance_resize(cxt->provider, cxt->id, ev->w, ev->h, NULL);
+		LOGD("cxt:%s resized to %dx%d", cxt->id, ev->w, ev->h);
+	} else {
+		LOGE("unknown window error: %d", ev->win);
+	}
+
+	return ECORE_CALLBACK_RENEW;
+}
+
 static void __add_climsg()
 {
 	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_SHOW, __show_cb, NULL);
 	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_HIDE, __hide_cb, NULL);
 	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_VISIBILITY_CHANGE, __visibility_cb, NULL);
 	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_LOWER, __lower_cb, NULL);
+	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_CONFIGURE, __configure_cb, NULL);
 }
 
 static int __aul_handler(aul_type type, bundle *b, void *data)
@@ -703,8 +770,12 @@ static int __before_loop(int argc, char **argv)
 		if (xdg_runtime_dir)
 			setenv("XDG_RUNTIME_DIR", xdg_runtime_dir, 1);
 
+		_D("xdg_runtime_dir:%s", xdg_runtime_dir);
+
 		if (wayland_display)
 			setenv("WAYLAND_DISPLAY", wayland_display, 1);
+
+		_D("wayland_display:%s", wayland_display);
 
 		bundle_free(kb);
 		kb = NULL;
