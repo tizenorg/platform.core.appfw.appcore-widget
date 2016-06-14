@@ -27,9 +27,17 @@
 
 #include <aul.h>
 #include <vconf.h>
+#include <tzplatform_config.h>
 
 #include "widget-log.h"
 #include "widget-private.h"
+
+#define PKGID_MAX 256
+#define PATH_APP_ROOT tzplatform_getenv(TZ_USER_APP)
+#define PATH_SYS_RO_APP_ROOT tzplatform_getenv(TZ_SYS_RO_APP)
+#define PATH_SYS_RW_APP_ROOT tzplatform_getenv(TZ_SYS_RW_APP)
+#define PATH_RES "/res"
+#define PATH_LOCALE "/locale"
 
 void _update_lang(void)
 {
@@ -80,10 +88,44 @@ void _update_region(void)
 	}
 }
 
+static int __get_locale_resource_dir(char *locale_dir, int size)
+{
+	int r;
+	char pkgid[PKGID_MAX];
+	const char *root_path;
+
+	root_path = aul_get_preinit_root_path();
+	if (root_path) {
+		snprintf(locale_dir, size, "%s" PATH_RES PATH_LOCALE,
+				root_path);
+		if (access(locale_dir, R_OK) == 0)
+			return 0;
+	}
+
+	r = aul_app_get_pkgid_bypid(getpid(), pkgid, sizeof(pkgid));
+	if (r != AUL_R_OK)
+		return -1;
+
+	snprintf(locale_dir, size, "%s/%s" PATH_RES PATH_LOCALE,
+			PATH_APP_ROOT, pkgid);
+	if (access(locale_dir, R_OK) == 0)
+		return 0;
+
+	snprintf(locale_dir, size, "%s/%s" PATH_RES PATH_LOCALE,
+			PATH_SYS_RO_APP_ROOT, pkgid);
+	if (access(locale_dir, R_OK) == 0)
+		return 0;
+
+	snprintf(locale_dir, size, "%s/%s" PATH_RES PATH_LOCALE,
+			PATH_SYS_RW_APP_ROOT, pkgid);
+
+	return 0;
+}
+
 static int __set_i18n(const char *domain)
 {
 	char *r;
-	char dirname[PATH_MAX] = {0, };
+	char locale_dir[PATH_MAX];
 	char *lang;
 
 	if (domain == NULL) {
@@ -91,8 +133,11 @@ static int __set_i18n(const char *domain)
 		return -1;
 	}
 
-	snprintf(dirname, PATH_MAX, "%s/res/locale", aul_get_app_root_path());
-	_D("locale dir: %s", dirname);
+	if (__get_locale_resource_dir(locale_dir, sizeof(locale_dir)) < 0) {
+		_E("Failed to get locale resource directory");
+		return -1;
+	}
+	_D("locale dir: %s", locale_dir);
 
 	r = setlocale(LC_ALL, "");
 	/* if locale is not set properly, try again to set as language base */
@@ -108,7 +153,7 @@ static int __set_i18n(const char *domain)
 	if (r == NULL)
 		_E("appcore: setlocale() error");
 
-	r = bindtextdomain(domain, dirname);
+	r = bindtextdomain(domain, locale_dir);
 	if (r == NULL)
 		_E("appcore: bindtextdomain() error");
 

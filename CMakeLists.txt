@@ -41,6 +41,7 @@ pkg_check_modules(pkg_widget REQUIRED
 		vconf-internal-keys
 		widget_service
 		capi-system-info
+		libtzplatform-config
 		)
 FOREACH(flag ${pkg_widget_CFLAGS})
 	SET(EXTRA_CFLAGS_widget "${EXTRA_CFLAGS_widget} ${flag}")

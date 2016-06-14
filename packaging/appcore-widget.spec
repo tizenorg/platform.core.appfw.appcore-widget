@@ -17,6 +17,7 @@ BuildRequires:  pkgconfig(appcore-common)
 BuildRequires:  pkgconfig(capi-appfw-app-common)
 BuildRequires:  pkgconfig(widget_service)
 BuildRequires:  pkgconfig(capi-system-info)
+BuildRequires:  pkgconfig(libtzplatform-config)
 BuildRequires:  cmake
 
 
