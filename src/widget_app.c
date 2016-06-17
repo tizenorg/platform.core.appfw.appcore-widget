@@ -326,7 +326,7 @@ static int __instance_resize(widget_class_h handle, const char *id, int w, int h
 static int __instance_update(widget_class_h handle, const char *id, bundle *b)
 {
 	widget_context_s *wc = __find_context_by_id(id);
-	int ret;
+	int ret = 0;
 	int force;
 	char *force_str = NULL;
 
@@ -444,6 +444,11 @@ static void __resize_window(char *id, bundle *b)
 	char *remain = NULL;
 	int w;
 	int h;
+
+	if (!wc) {
+		_E("can not find instance: %s", id);
+		return;
+	}
 
 	bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
 	bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
