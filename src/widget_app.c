@@ -57,6 +57,11 @@ typedef enum _widget_obj_state_e {
 	WC_TERMINATED = 3
 } widget_obj_state_e;
 
+enum {
+	UPDATE_LOCAL = 0,
+	UPDATE_ALL = 1,
+};
+
 struct _widget_class {
 	void *user_data;
 	widget_instance_lifecycle_callback_s ops;
@@ -83,7 +88,7 @@ struct _widget_context {
 	void *tag;
 	Evas_Object *win;
 	int win_id;
-	bundle *content;
+	char *content;
 	widget_instance_lifecycle_callback_s ops;
 };
 
@@ -93,13 +98,14 @@ typedef struct _widget_context widget_context_s;
 #define WIDGET_APP_EVENT_MAX 5
 static GList *handler_list[WIDGET_APP_EVENT_MAX] = {NULL, };
 
-static int caller_pid = 0;
+static int caller_pid;
 static widget_app_lifecycle_callback_s *app_ops;
-static void *app_user_data = NULL;
-static char *appid = NULL;
-static widget_class_h class_provider = NULL;
-static GList *contexts = NULL;
-static char *viewer_endpoint = NULL;
+static void *app_user_data;
+static char *appid;
+static widget_class_h class_provider;
+static GList *contexts;
+static char *viewer_endpoint;
+static int exit_called;
 
 static void _widget_core_set_appcore_event_cb(void);
 static void _widget_core_unset_appcore_event_cb(void);
@@ -202,17 +208,27 @@ static int __send_lifecycle_event(const char *class_id, const char *instance_id,
 }
 
 static int __send_update_status(const char *class_id, const char *instance_id,
-	int status, bundle *extra, int internal_only)
+	int status, bundle *extra)
 {
-	bundle *b = extra;
+	bundle *b;
 	int lifecycle = -1;
+	bundle_raw *raw = NULL;
+	int len;
 
-	if (b == NULL)
-		b = bundle_create();
+	b = bundle_create();
+	if (!b) {
+		_E("out of memory");
+		return -1;
+	}
 
 	bundle_add_str(b, WIDGET_K_ID, class_id);
 	bundle_add_str(b, WIDGET_K_INSTANCE, instance_id);
 	bundle_add_byte(b, WIDGET_K_STATUS, &status, sizeof(int));
+
+	if (extra) {
+		bundle_encode(extra, &raw, &len);
+		bundle_add_str(b, WIDGET_K_CONTENT_INFO, (const char *)raw);
+	}
 
 	_D("send update %s(%d) to %s", instance_id, status, viewer_endpoint);
 	aul_app_com_send(viewer_endpoint, b);
@@ -235,13 +251,14 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 	if (lifecycle > -1)
 		__send_lifecycle_event(class_id, instance_id, lifecycle);
 
-	if (extra == NULL)
-		bundle_free(b);
+	bundle_free(b);
+	if (raw)
+		free(raw);
 
 	return 0;
 }
 
-static int __instance_resume(widget_class_h handle, const char *id, bundle *b)
+static int __instance_resume(widget_class_h handle, const char *id, int send_update)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret;
@@ -266,13 +283,17 @@ static int __instance_resume(widget_class_h handle, const char *id, bundle *b)
 
 	wc->state = WC_RUNNING;
 	_D("%s is resumed", id);
-	ret = __send_update_status(handle->classid, wc->id,
-		WIDGET_INSTANCE_EVENT_RESUME, NULL, 0);
+	if (send_update) {
+		ret = __send_update_status(handle->classid, wc->id,
+			WIDGET_INSTANCE_EVENT_RESUME, NULL);
+	} else {
+		ret = 0;
+	}
 
 	return ret;
 }
 
-static int __instance_pause(widget_class_h handle, const char *id, bundle *b)
+static int __instance_pause(widget_class_h handle, const char *id, int send_update)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret;
@@ -297,13 +318,17 @@ static int __instance_pause(widget_class_h handle, const char *id, bundle *b)
 
 	wc->state = WC_PAUSED;
 	_D("%s is paused", id);
-	ret = __send_update_status(handle->classid, wc->id,
-		WIDGET_INSTANCE_EVENT_PAUSE, NULL, 0);
+	if (send_update) {
+		ret = __send_update_status(handle->classid, wc->id,
+			WIDGET_INSTANCE_EVENT_PAUSE, NULL);
+	} else {
+		ret = 0;
+	}
 
 	return ret;
 }
 
-static int __instance_resize(widget_class_h handle, const char *id, int w, int h, bundle *b)
+static int __instance_resize(widget_class_h handle, const char *id, int w, int h)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret;
@@ -318,48 +343,39 @@ static int __instance_resize(widget_class_h handle, const char *id, int w, int h
 
 	_D("%s is resized to %dx%d", id, w, h);
 	ret = __send_update_status(handle->classid, wc->id,
-		WIDGET_INSTANCE_EVENT_SIZE_CHANGED, NULL, 0);
+		WIDGET_INSTANCE_EVENT_SIZE_CHANGED, NULL);
 
 	return ret;
 }
 
-static int __instance_update(widget_class_h handle, const char *id, bundle *b)
+static int __instance_update(widget_class_h handle, const char *id, int force, const char *content)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret = 0;
-	int force;
-	char *force_str = NULL;
-
+	bundle *b = NULL;
 	if (!wc) {
 		_E("context not found: %s", id);
 		return -1;
 	}
 
+	if (content)
+		b = bundle_decode((const bundle_raw *)content, strlen(content));
+
 	if (handle->ops.update) {
-		if (b)
-			bundle_get_str(b, WIDGET_K_FORCE, &force_str);
-
-		if (force_str && strcmp(force_str, "true") == 0)
-			force = 1;
-		else
-			force = 0;
-
 		handle->ops.update(wc, b, force, handle->user_data);
 		ret = __send_update_status(handle->classid, wc->id,
-			WIDGET_INSTANCE_EVENT_UPDATE, b, 0);
+			WIDGET_INSTANCE_EVENT_UPDATE, NULL);
 		_D("updated:%s", id);
 	}
 
 	return ret;
 }
 
-static int __instance_create(widget_class_h handle, const char *id, bundle *b)
+static int __instance_create(widget_class_h handle, const char *id, const char *content, int w, int h)
 {
 	widget_context_s *wc = NULL;
-	int w = 0, h = 0;
-	char *w_str = NULL, *h_str = NULL;
-	char *remain = NULL;
 	int ret = 0;
+	bundle *content_info = NULL;
 
 	wc = (widget_context_s *)malloc(sizeof(widget_context_s));
 	if (!wc)
@@ -371,30 +387,30 @@ static int __instance_create(widget_class_h handle, const char *id, bundle *b)
 	wc->win = NULL;
 	wc->win_id = -1;
 
-	wc->content = bundle_dup(b);
-	bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
-	bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
-
-	if (w_str)
-		w = (int)g_ascii_strtoll(w_str, &remain, 10);
-
-	if (h_str)
-		h = (int)g_ascii_strtoll(h_str, &remain, 10);
+	if (content) {
+		wc->content = strdup(content);
+		content_info = bundle_decode((const bundle_raw *)content, strlen(content));
+	}
 
 	contexts = g_list_append(contexts, wc);
 
-	handle->ops.create(wc, b, w, h, handle->user_data);
+	handle->ops.create(wc, content_info, w, h, handle->user_data);
 	ret = __send_update_status(handle->classid, wc->id,
-			WIDGET_INSTANCE_EVENT_CREATE, b, 0);
+			WIDGET_INSTANCE_EVENT_CREATE, NULL);
+
+	if (content_info)
+		bundle_free(content_info);
 
 	return ret;
 }
 
 static int __instance_destroy(widget_class_h handle, const char *id,
-		widget_destroy_type_e reason, bundle *b)
+		widget_app_destroy_type_e reason, int send_update)
 {
 	widget_context_s *wc = __find_context_by_id(id);
 	int ret = 0;
+	int event = WIDGET_INSTANCE_EVENT_TERMINATE;
+	bundle *content_info;
 
 	if (!wc) {
 		_E("could not find widget obj: %s", id);
@@ -402,18 +418,38 @@ static int __instance_destroy(widget_class_h handle, const char *id,
 	}
 
 	wc->state = WC_TERMINATED;
-	handle->ops.destroy(wc, (widget_app_destroy_type_e)reason, b,
+	if (wc->content)
+		content_info = bundle_decode((const bundle_raw *)wc->content, strlen(wc->content));
+	else
+		content_info = bundle_create();
+
+	handle->ops.destroy(wc, reason, content_info,
 			handle->user_data);
 
-	ret = __send_update_status(handle->classid, id,
-			WIDGET_INSTANCE_EVENT_TERMINATE, b, 0);
+	if (reason == WIDGET_APP_DESTROY_TYPE_PERMANENT) {
+		event = WIDGET_INSTANCE_EVENT_DESTROY;
+	} else {
+		ret = __send_update_status(handle->classid, id,
+				WIDGET_INSTANCE_EVENT_EXTRA_UPDATED, content_info);
+	}
+
+	if (content_info)
+		bundle_free(content_info);
+
+	ret = __send_update_status(handle->classid, id, event, NULL);
 
 	contexts = g_list_remove(contexts, wc);
 
 	if (wc->id)
 		free(wc->id);
 
+	if (wc->content)
+		free(wc->content);
+
 	free(wc);
+
+	if (contexts == NULL && !exit_called) /* all instance destroyed */
+		widget_app_exit();
 
 	return ret;
 }
@@ -436,34 +472,12 @@ static widget_class_h __find_class_handler(const char *class_id,
 	return NULL;
 }
 
-static void __resize_window(char *id, bundle *b)
+static void __resize_window(char *id, int w, int h)
 {
 	widget_context_s *wc = __find_context_by_id(id);
-	char *w_str = NULL;
-	char *h_str = NULL;
-	char *remain = NULL;
-	int w;
-	int h;
 
 	if (!wc) {
 		_E("can not find instance: %s", id);
-		return;
-	}
-
-	bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
-	bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
-
-	if (w_str) {
-		w = (int)g_ascii_strtoll(w_str, &remain, 10);
-	} else {
-		_E("unable to get width");
-		return;
-	}
-
-	if (h_str) {
-		h = (int)g_ascii_strtoll(h_str, &remain, 10);
-	} else {
-		_E("unable to get height");
 		return;
 	}
 
@@ -478,11 +492,16 @@ static void __control(bundle *b)
 	char *class_id = NULL;
 	char *id = NULL;
 	char *operation = NULL;
-	char *reason = NULL;
+	char *content = NULL;
+	char *w_str = NULL;
+	char *h_str = NULL;
+	int w = 0;
+	int h = 0;
 	char *remain = NULL;
-	int destroy_type = WIDGET_DESTROY_TYPE_DEFAULT;
-
+	int force;
+	char *force_str = NULL;
 	widget_class_h handle = NULL;
+
 	bundle_get_str(b, WIDGET_K_CLASS, &class_id);
 	/* for previous version compatibility, use appid for default class id */
 	if (class_id == NULL)
@@ -502,23 +521,36 @@ static void __control(bundle *b)
 		goto error;
 	}
 
-	if (strcmp(operation, "create") == 0) {
-		__instance_create(handle, id, b);
-	} else if (strcmp(operation, "resize") == 0) {
-		__resize_window(id, b);
-	} else if (strcmp(operation, "update") == 0) {
-		__instance_update(handle, id, b);
-	} else if (strcmp(operation, "destroy") == 0) {
-		bundle_get_str(b, WIDGET_K_REASON, &reason);
-		if (reason)
-			destroy_type = (int)g_ascii_strtoll(reason, &remain,
-					10);
+	bundle_get_str(b, WIDGET_K_FORCE, &force_str);
 
-		__instance_destroy(handle, id, destroy_type, b);
+	if (force_str && strcmp(force_str, "true") == 0)
+		force = 1;
+	else
+		force = 0;
+
+	bundle_get_str(b, WIDGET_K_CONTENT_INFO, &content);
+	bundle_get_str(b, WIDGET_K_WIDTH, &w_str);
+	bundle_get_str(b, WIDGET_K_HEIGHT, &h_str);
+	if (w_str)
+		w = (int)g_ascii_strtoll(w_str, &remain, 10);
+
+	if (h_str)
+		h = (int)g_ascii_strtoll(h_str, &remain, 10);
+
+	if (strcmp(operation, "create") == 0) {
+		__instance_create(handle, id, content, w, h);
+	} else if (strcmp(operation, "resize") == 0) {
+		__resize_window(id, w, h);
+	} else if (strcmp(operation, "update") == 0) {
+		__instance_update(handle, id, force, content);
+	} else if (strcmp(operation, "destroy") == 0) {
+		__instance_destroy(handle, id, WIDGET_APP_DESTROY_TYPE_PERMANENT, UPDATE_ALL);
 	} else if (strcmp(operation, "resume") == 0) {
-		__instance_resume(handle, id, b);
+		__instance_resume(handle, id, UPDATE_ALL);
 	} else if (strcmp(operation, "pause") == 0) {
-		__instance_pause(handle, id, b);
+		__instance_pause(handle, id, UPDATE_ALL);
+	} else if (strcmp(operation, "terminate") == 0) {
+		__instance_destroy(handle, id, WIDGET_APP_DESTROY_TYPE_TEMPORARY, UPDATE_ALL);
 	}
 
 	return;
@@ -527,70 +559,63 @@ error:
 	return;
 }
 
-static void __resume_cb(const char *id, void *data)
-{
-	widget_context_s *cxt = __find_context_by_id(id);
-
-	if (!cxt) {
-		_E("invalid context id:%s", id);
-		return;
-	}
-
-	__instance_resume(cxt->provider, id, NULL);
-}
-
-static void __pause_cb(const char *id, void *data)
-{
-	widget_context_s *cxt = __find_context_by_id(id);
-
-	if (!cxt) {
-		_E("invalid context id:%s", id);
-		return;
-	}
-
-	__instance_pause(cxt->provider, id, NULL);
-}
-
-static void __pause_all()
+static void __pause_all(int send_update)
 {
 	GList *iter = g_list_first(contexts);
 
 	while (iter != NULL) {
 		widget_context_s *cxt = (widget_context_s *)iter->data;
-		const char *id = cxt->id;
 
 		switch (cxt->state) {
 		case WC_READY:
-			__resume_cb(id, NULL);
-			__pause_cb(id, NULL);
+			__instance_resume(cxt->provider, cxt->id, send_update);
+			__instance_pause(cxt->provider, cxt->id, send_update);
 			break;
 		case WC_RUNNING:
-			__pause_cb(id, NULL);
+			__instance_pause(cxt->provider, cxt->id, send_update);
 			break;
 		}
 		iter = g_list_next(iter);
 	}
 }
 
-static void __resume_all()
+static void __resume_all(int send_update)
 {
 	GList *iter = g_list_first(contexts);
 
 	while (iter != NULL) {
 		widget_context_s *cxt = (widget_context_s *)iter->data;
-		const char *id = cxt->id;
 
 		switch (cxt->state) {
 		case WC_READY:
-			__resume_cb(id, NULL);
+			__instance_resume(cxt->provider, cxt->id, send_update);
 			break;
 		case WC_PAUSED:
-			__resume_cb(id, NULL);
+			__instance_resume(cxt->provider, cxt->id, send_update);
 			break;
 		}
 		iter = g_list_next(iter);
 	}
 }
+
+static void __destroy_all(int reason, int send_update)
+{
+	GList *iter = g_list_first(contexts);
+
+	__pause_all(send_update);
+
+	while (iter != NULL) {
+		widget_context_s *cxt = (widget_context_s *)iter->data;
+
+		switch (cxt->state) {
+		case WC_PAUSED:
+			__instance_destroy(cxt->provider, cxt->id, reason, send_update);
+			break;
+		}
+		iter = g_list_next(iter);
+	}
+}
+
 
 static Eina_Bool __show_cb(void *data, int type, void *event)
 {
@@ -600,7 +625,7 @@ static Eina_Bool __show_cb(void *data, int type, void *event)
 	LOGD("show %d %d", (unsigned int)ev->win, (unsigned int)ev->data[0]);
 
 	if (cxt)
-		__instance_resume(cxt->provider, cxt->id, NULL);
+		__instance_resume(cxt->provider, cxt->id, UPDATE_ALL);
 	else
 		LOGE("unknown window error: %d", ev->win);
 
@@ -616,7 +641,7 @@ static Eina_Bool __hide_cb(void *data, int type, void *event)
 	LOGD("hide %d", (unsigned int)ev->win);
 
 	if (cxt)
-		__instance_pause(cxt->provider, cxt->id, NULL);
+		__instance_pause(cxt->provider, cxt->id, UPDATE_ALL);
 	else
 		LOGE("unknown window error: %d", ev->win);
 
@@ -636,9 +661,9 @@ static Eina_Bool __visibility_cb(void *data, int type, void *event)
 	}
 
 	if (cxt->state == WC_PAUSED && ev->fully_obscured == 0) {
-		__instance_resume(cxt->provider, cxt->id, NULL);
+		__instance_resume(cxt->provider, cxt->id, UPDATE_ALL);
 	} else if (cxt->state == WC_RUNNING && ev->fully_obscured == 1) {
-		__instance_pause(cxt->provider, cxt->id, NULL);
+		__instance_pause(cxt->provider, cxt->id, UPDATE_ALL);
 	} else {
 		LOGD("cxt:%s state:%d obscured:%d", cxt->id, cxt->state, ev->fully_obscured);
 	}
@@ -665,7 +690,7 @@ static Eina_Bool __configure_cb(void *data, int type, void *event)
 	}
 
 	if (cxt->state == WC_PAUSED || cxt->state == WC_RUNNING)
-		__instance_resize(cxt->provider, cxt->id, ev->w, ev->h, NULL);
+		__instance_resize(cxt->provider, cxt->id, ev->w, ev->h);
 	LOGD("cxt:%s resized to %dx%d", cxt->id, ev->w, ev->h);
 
 	return ECORE_CALLBACK_RENEW;
@@ -701,7 +726,7 @@ static int __aul_handler(aul_type type, bundle *b, void *data)
 		__control(b);
 		break;
 	case AUL_RESUME:
-		__resume_all();
+		__resume_all(UPDATE_ALL);
 		break;
 	case AUL_TERMINATE:
 		widget_app_exit();
@@ -848,9 +873,11 @@ static int __before_loop(int argc, char **argv)
 
 static void __after_loop()
 {
+	exit_called = 1;
 	vconf_ignore_key_changed(VCONFKEY_SYSMAN_POWER_OFF_STATUS, __on_poweroff);
 
-	__pause_all();
+	__pause_all(UPDATE_LOCAL);
+	__destroy_all(WIDGET_APP_DESTROY_TYPE_TEMPORARY, UPDATE_ALL);
 
 	if (app_ops->terminate)
 		app_ops->terminate(app_user_data);
@@ -1053,6 +1080,11 @@ EXPORT_API int widget_app_exit(void)
 		return WIDGET_ERROR_NOT_SUPPORTED;
 	}
 
+	if (exit_called)
+		return WIDGET_ERROR_NONE;
+
+	exit_called = 1;
+
 	ecore_main_loop_quit();
 
 	return WIDGET_ERROR_NONE;
@@ -1067,13 +1099,12 @@ static gboolean __finish_event_cb(gpointer user_data)
 
 	switch (wc->state) {
 	case WC_READY:
-
-		break;
+		__instance_resume(wc->provider, wc->id, UPDATE_LOCAL);
 	case WC_RUNNING:
-
-		break;
+		__instance_pause(wc->provider, wc->id, UPDATE_LOCAL);
 	case WC_PAUSED:
-
+		__instance_destroy(wc->provider, wc->id,
+				WIDGET_DESTROY_TYPE_TEMPORARY, UPDATE_ALL);
 		break;
 	default:
 		break;
@@ -1354,6 +1385,8 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context,
 {
 	const char *class_id = NULL;
 	int ret = 0;
+	bundle_raw *raw = NULL;
+	int len;
 
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported");
@@ -1374,7 +1407,16 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context,
 		return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
 
 	ret = __send_update_status(class_id, context->id,
-			WIDGET_INSTANCE_EVENT_EXTRA_UPDATED, content_info, true);
+			WIDGET_INSTANCE_EVENT_EXTRA_UPDATED, content_info);
+
+	if (context->content)
+		free(context->content);
+
+	bundle_encode(content_info, &raw, &len);
+	if (raw)
+		context->content = strdup((const char *)raw);
+	else
+		context->content = NULL;
 
 	if (ret < 0) {
 		_E("failed to send content info: %s of %s (%d)", context->id,
