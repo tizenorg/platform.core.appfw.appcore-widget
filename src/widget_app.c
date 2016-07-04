@@ -380,7 +380,7 @@ static int __instance_create(widget_class_h handle, const char *id, const char *
 	int ret = 0;
 	bundle *content_info = NULL;
 
-	wc = (widget_context_s *)malloc(sizeof(widget_context_s));
+	wc = (widget_context_s *)calloc(1, sizeof(widget_context_s));
 	if (!wc)
 		return WIDGET_ERROR_OUT_OF_MEMORY;
 
@@ -1316,9 +1316,9 @@ widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 		return NULL;
 	}
 
-	wc = (widget_class_s *)malloc(sizeof(widget_class_s));
+	wc = (widget_class_s *)calloc(1, sizeof(widget_class_s));
 	if (wc == NULL) {
-		_E("failed to malloc : %s", __FUNCTION__);
+		_E("failed to calloc : %s", __FUNCTION__);
 		set_last_result(WIDGET_ERROR_OUT_OF_MEMORY);
 		return NULL;
 	}
