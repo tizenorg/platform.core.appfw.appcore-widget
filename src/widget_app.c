@@ -228,6 +228,7 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 	if (extra) {
 		bundle_encode(extra, &raw, &len);
 		bundle_add_str(b, WIDGET_K_CONTENT_INFO, (const char *)raw);
+		aul_widget_instance_add(class_id, instance_id);
 	}
 
 	_D("send update %s(%d) to %s", instance_id, status, viewer_endpoint);
@@ -349,6 +350,35 @@ static int __instance_resize(widget_class_h handle, const char *id, int w, int h
 }
 
 /* LCOV_EXCL_START */
+static int __instance_update_all(widget_class_h handle, int force, const char *content)
+{
+	widget_context_s *wc;
+	int ret = 0;
+	bundle *b = NULL;
+	GList *context = contexts;
+
+	if (content)
+		b = bundle_decode((const bundle_raw *)content, strlen(content));
+
+	if (handle->ops.update) {
+		while (context) {
+			wc = (widget_context_s *)context->data;
+			handle->ops.update(wc, b, force, handle->user_data);
+			ret = __send_update_status(handle->classid, wc->id,
+				WIDGET_INSTANCE_EVENT_UPDATE, NULL);
+			_D("updated:%s", wc->id);
+			context = context->next;
+		}
+	}
+
+	if (b)
+		bundle_free(b);
+
+	return ret;
+}
+/* LCOV_EXCL_STOP */
+
+/* LCOV_EXCL_START */
 static int __instance_update(widget_class_h handle, const char *id, int force, const char *content)
 {
 	widget_context_s *wc = __find_context_by_id(id);
@@ -399,9 +429,18 @@ static int __instance_create(widget_class_h handle, const char *id, const char *
 
 	contexts = g_list_append(contexts, wc);
 
-	handle->ops.create(wc, content_info, w, h, handle->user_data);
-	ret = __send_update_status(handle->classid, wc->id,
+	ret = handle->ops.create(wc, content_info, w, h, handle->user_data);
+	if (ret < 0) {
+		/* TODO send abort */
+	} else {
+		ret = __send_update_status(handle->classid, wc->id,
 			WIDGET_INSTANCE_EVENT_CREATE, NULL);
+
+		if (content == NULL)
+			content = "NULL";
+
+		aul_widget_instance_add(handle->classid, id);
+	}
 
 	if (content_info)
 		bundle_free(content_info);
@@ -437,6 +476,8 @@ static int __instance_destroy(widget_class_h handle, const char *id,
 		ret = __send_update_status(handle->classid, id,
 				WIDGET_INSTANCE_EVENT_EXTRA_UPDATED, content_info);
 	}
+
+	aul_widget_instance_del(handle->classid, id);
 
 	if (content_info)
 		bundle_free(content_info);
@@ -549,7 +590,11 @@ static void __control(bundle *b)
 	} else if (strcmp(operation, "resize") == 0) {
 		__resize_window(id, w, h);
 	} else if (strcmp(operation, "update") == 0) {
-		__instance_update(handle, id, force, content);
+		if (id)
+			__instance_update(handle, id, force, content);
+		else
+			__instance_update_all(handle, force, content);
+
 	} else if (strcmp(operation, "destroy") == 0) {
 		__instance_destroy(handle, id, WIDGET_APP_DESTROY_TYPE_PERMANENT, UPDATE_ALL);
 	} else if (strcmp(operation, "resume") == 0) {
