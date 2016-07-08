@@ -138,8 +138,8 @@ static inline bool _is_widget_feature_enabled(void)
 	ret = system_info_get_platform_bool(
 			"http://tizen.org/feature/shell.appwidget", &feature);
 	if (ret != SYSTEM_INFO_ERROR_NONE) {
-		_E("failed to get system info");
-		return false;
+		_E("failed to get system info"); /* LCOV_EXCL_LINE */
+		return false; /* LCOV_EXCL_LINE */
 	}
 
 	retrieved = true;
@@ -189,8 +189,8 @@ static int __send_lifecycle_event(const char *class_id, const char *instance_id,
 	int ret;
 
 	if (b == NULL) {
-		_E("out of memory");
-		return -1;
+		_E("out of memory"); /* LCOV_EXCL_LINE */
+		return -1; /* LCOV_EXCL_LINE */
 	}
 
 	bundle_add_str(b, WIDGET_K_ID, class_id);
@@ -200,7 +200,7 @@ static int __send_lifecycle_event(const char *class_id, const char *instance_id,
 	_D("send lifecycle %s(%d)", instance_id, status);
 	ret = aul_app_com_send("widget.status", b);
 	if (ret < 0)
-		_E("send lifecycle error:%d", ret);
+		_E("send lifecycle error:%d", ret); /* LCOV_EXCL_LINE */
 
 	bundle_free(b);
 
@@ -217,8 +217,8 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 
 	b = bundle_create();
 	if (!b) {
-		_E("out of memory");
-		return -1;
+		_E("out of memory"); /* LCOV_EXCL_LINE */
+		return -1; /* LCOV_EXCL_LINE */
 	}
 
 	bundle_add_str(b, WIDGET_K_ID, class_id);
@@ -264,18 +264,18 @@ static int __instance_resume(widget_class_h handle, const char *id, int send_upd
 	int ret;
 
 	if (!wc) {
-		_E("context not found: %s", id);
-		return -1;
+		_E("context not found: %s", id); /* LCOV_EXCL_LINE */
+		return -1; /* LCOV_EXCL_LINE */
 	}
 
 	if (wc->state == WC_RUNNING) {
-		_D("%s is already in running state", id);
-		return 0;
+		_D("%s is already in running state", id); /* LCOV_EXCL_LINE */
+		return 0; /* LCOV_EXCL_LINE */
 	}
 
 	if (wc->state == WC_TERMINATED) {
-		_D("%s is in terminated state", id);
-		return 0;
+		_D("%s is in terminated state", id); /* LCOV_EXCL_LINE */
+		return 0; /* LCOV_EXCL_LINE */
 	}
 
 	if (handle->ops.resume)
@@ -299,18 +299,18 @@ static int __instance_pause(widget_class_h handle, const char *id, int send_upda
 	int ret;
 
 	if (!wc) {
-		_E("context not found: %s", id);
-		return -1;
+		_E("context not found: %s", id); /* LCOV_EXCL_LINE */
+		return -1; /* LCOV_EXCL_LINE */
 	}
 
 	if (wc->state == WC_PAUSED) {
-		_D("%s is already in paused state", id);
-		return 0;
+		_D("%s is already in paused state", id); /* LCOV_EXCL_LINE */
+		return 0; /* LCOV_EXCL_LINE */
 	}
 
 	if (wc->state == WC_TERMINATED) {
-		_D("%s is in terminated state", id);
-		return 0;
+		_D("%s is in terminated state", id); /* LCOV_EXCL_LINE */
+		return 0; /* LCOV_EXCL_LINE */
 	}
 
 	if (handle->ops.pause)
@@ -334,8 +334,8 @@ static int __instance_resize(widget_class_h handle, const char *id, int w, int h
 	int ret;
 
 	if (!wc) {
-		_E("context not found: %s", id);
-		return -1;
+		_E("context not found: %s", id); /* LCOV_EXCL_LINE */
+		return -1; /* LCOV_EXCL_LINE */
 	}
 
 	if (handle->ops.resize)
@@ -348,6 +348,7 @@ static int __instance_resize(widget_class_h handle, const char *id, int w, int h
 	return ret;
 }
 
+/* LCOV_EXCL_START */
 static int __instance_update(widget_class_h handle, const char *id, int force, const char *content)
 {
 	widget_context_s *wc = __find_context_by_id(id);
@@ -373,6 +374,7 @@ static int __instance_update(widget_class_h handle, const char *id, int force, c
 
 	return ret;
 }
+/* LCOV_EXCL_STOP */
 
 static int __instance_create(widget_class_h handle, const char *id, const char *content, int w, int h)
 {
@@ -416,8 +418,8 @@ static int __instance_destroy(widget_class_h handle, const char *id,
 	bundle *content_info;
 
 	if (!wc) {
-		_E("could not find widget obj: %s", id);
-		return WIDGET_ERROR_INVALID_PARAMETER;
+		_E("could not find widget obj: %s", id); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_INVALID_PARAMETER; /* LCOV_EXCL_LINE */
 	}
 
 	wc->state = WC_TERMINATED;
@@ -475,6 +477,7 @@ static widget_class_h __find_class_handler(const char *class_id,
 	return NULL;
 }
 
+/* LCOV_EXCL_START */
 static void __resize_window(char *id, int w, int h)
 {
 	widget_context_s *wc = __find_context_by_id(id);
@@ -489,6 +492,7 @@ static void __resize_window(char *id, int w, int h)
 	else
 		_E("unable to find window of %d", wc->id);
 }
+/* LCOV_EXCL_STOP */
 
 static void __control(bundle *b)
 {
@@ -515,7 +519,7 @@ static void __control(bundle *b)
 
 	handle = __find_class_handler(class_id, class_provider);
 	if (!handle) {
-		_E("no handle provided: %s", class_id);
+		_E("no handle provided: %s", class_id); /* LCOV_EXCL_LINE */
 		goto error;
 	}
 
@@ -582,6 +586,7 @@ static void __pause_all(int send_update)
 	}
 }
 
+/* LCOV_EXCL_START */
 static void __resume_all(int send_update)
 {
 	GList *iter = g_list_first(contexts);
@@ -600,6 +605,7 @@ static void __resume_all(int send_update)
 		iter = g_list_next(iter);
 	}
 }
+/* LCOV_EXCL_STOP */
 
 static void __destroy_all(int reason, int send_update)
 {
@@ -630,7 +636,7 @@ static Eina_Bool __show_cb(void *data, int type, void *event)
 	if (cxt)
 		__instance_resume(cxt->provider, cxt->id, UPDATE_ALL);
 	else
-		LOGE("unknown window error: %d", ev->win);
+		LOGE("unknown window error: %d", ev->win); /* LCOV_EXCL_LINE */
 
 	return ECORE_CALLBACK_RENEW;
 }
@@ -646,7 +652,7 @@ static Eina_Bool __hide_cb(void *data, int type, void *event)
 	if (cxt)
 		__instance_pause(cxt->provider, cxt->id, UPDATE_ALL);
 	else
-		LOGE("unknown window error: %d", ev->win);
+		LOGE("unknown window error: %d", ev->win); /* LCOV_EXCL_LINE */
 
 	return ECORE_CALLBACK_RENEW;
 }
@@ -674,11 +680,13 @@ static Eina_Bool __visibility_cb(void *data, int type, void *event)
 	return ECORE_CALLBACK_RENEW;
 }
 
+/* LCOV_EXCL_START */
 static Eina_Bool __lower_cb(void *data, int type, void *event)
 {
 	LOGD("lower");
 	return ECORE_CALLBACK_RENEW;
 }
+/* LCOV_EXCL_STOP */
 
 static Eina_Bool __configure_cb(void *data, int type, void *event)
 {
@@ -688,8 +696,8 @@ static Eina_Bool __configure_cb(void *data, int type, void *event)
 	LOGD("configure: %d %d", ev->w, ev->h);
 
 	if (!cxt) {
-		LOGE("unknown window error: %d", ev->win);
-		return ECORE_CALLBACK_RENEW;
+		LOGE("unknown window error: %d", ev->win); /* LCOV_EXCL_LINE */
+		return ECORE_CALLBACK_RENEW; /* LCOV_EXCL_LINE */
 	}
 
 	if (cxt->state == WC_PAUSED || cxt->state == WC_RUNNING)
@@ -746,15 +754,15 @@ static char *__get_domain_name(char *appid)
 	char *name_token;
 
 	if (appid == NULL) {
-		_E("appid is NULL");
-		return NULL;
+		_E("appid is NULL"); /* LCOV_EXCL_LINE */
+		return NULL; /* LCOV_EXCL_LINE */
 	}
 
 	name_token = strrchr(appid, '.');
 
 	if (name_token == NULL) {
-		_E("appid is invalid");
-		return appid;
+		_E("appid is invalid"); /* LCOV_EXCL_LINE */
+		return appid; /* LCOV_EXCL_LINE */
 	}
 
 	name_token++;
@@ -762,6 +770,7 @@ static char *__get_domain_name(char *appid)
 	return name_token;
 }
 
+/* LCOV_EXCL_START */
 static void __on_poweroff(keynode_t *key, void *data)
 {
 	int val;
@@ -780,6 +789,7 @@ static void __on_poweroff(keynode_t *key, void *data)
 		break;
 	}
 }
+/* LCOV_EXCL_STOP */
 
 extern int _set_i18n(const char *name);
 
@@ -820,23 +830,27 @@ static int __before_loop(int argc, char **argv)
 		bundle_free(kb);
 		kb = NULL;
 	} else {
-		_E("failed to get launch argv");
+		_E("failed to get launch argv"); /* LCOV_EXCL_LINE */
 	}
 
 	elm_init(argc, argv);
 
 	r = aul_launch_init(__aul_handler, NULL);
 	if (r < 0) {
+		/* LCOV_EXCL_START */
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
 				__FUNCTION__,
 				"Fail to call the aul_launch_init");
+		/* LCOV_EXCL_STOP */
 	}
 
 	r = aul_launch_argv_handler(argc, argv);
 	if (r < 0) {
+		/* LCOV_EXCL_START */
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
 				__FUNCTION__,
 				"Fail to call the aul_launch_argv_handler");
+		/* LCOV_EXCL_STOP */
 	}
 
 	r = app_get_id(&appid);
@@ -846,17 +860,21 @@ static int __before_loop(int argc, char **argv)
 	name = __get_domain_name(appid);
 
 	if (name == NULL) {
+		/* LCOV_EXCL_START */
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
 				__FUNCTION__,
 				"Fail to call __get_domain_name");
+		/* LCOV_EXCL_STOP */
 	}
 
 	r = _set_i18n(name);
 
 	if (r < 0) {
+		/* LCOV_EXCL_START */
 		return widget_app_error(WIDGET_ERROR_INVALID_PARAMETER,
 				__FUNCTION__,
 				"Fail to call _set_i18n");
+		/* LCOV_EXCL_STOP */
 	}
 
 	__add_climsg();
@@ -1049,8 +1067,8 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 	int r;
 
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (argc <= 0 || argv == NULL || callback == NULL)
@@ -1079,8 +1097,8 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 EXPORT_API int widget_app_exit(void)
 {
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (exit_called)
@@ -1093,6 +1111,7 @@ EXPORT_API int widget_app_exit(void)
 	return WIDGET_ERROR_NONE;
 }
 
+/* LCOV_EXCL_START */
 static gboolean __finish_event_cb(gpointer user_data)
 {
 	if (user_data == NULL)
@@ -1115,12 +1134,13 @@ static gboolean __finish_event_cb(gpointer user_data)
 
 	return FALSE;
 }
+/* LCOV_EXCL_STOP */
 
 EXPORT_API int widget_app_terminate_context(widget_context_h context)
 {
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (context == NULL)
@@ -1137,8 +1157,8 @@ EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 	widget_context_s *wc;
 
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (!cb)
@@ -1197,7 +1217,7 @@ EXPORT_API int widget_app_add_event_handler(app_event_handler_h *event_handler,
 
 	handler = calloc(1, sizeof(struct app_event_handler));
 	if (!handler)
-		return widget_app_error(WIDGET_ERROR_OUT_OF_MEMORY, __FUNCTION__, NULL);
+		return widget_app_error(WIDGET_ERROR_OUT_OF_MEMORY, __FUNCTION__, NULL); /* LCOV_EXCL_LINE */
 
 	if (g_list_length(handler_list[event_type]) == 0)
 		__register_event(event_type);
@@ -1246,9 +1266,9 @@ EXPORT_API int widget_app_remove_event_handler(app_event_handler_h
 EXPORT_API const char *widget_app_get_id(widget_context_h context)
 {
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
-		return NULL;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		set_last_result(WIDGET_ERROR_NOT_SUPPORTED); /* LCOV_EXCL_LINE */
+		return NULL; /* LCOV_EXCL_LINE */
 	}
 
 	if (!context) {
@@ -1268,8 +1288,8 @@ EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 	Ecore_Wl_Window *wl_win;
 
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (context == NULL || win == NULL)
@@ -1278,15 +1298,15 @@ EXPORT_API int widget_app_get_elm_win(widget_context_h context,
 
 	ret_win = elm_win_add(NULL, cxt->id, ELM_WIN_BASIC);
 	if (ret_win == NULL) {
-		_E("failed to create window");
-		return WIDGET_ERROR_FAULT;
+		_E("failed to create window"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_FAULT; /* LCOV_EXCL_LINE */
 	}
 
 	wl_win = elm_win_wl_window_get(ret_win);
 	if (wl_win == NULL) {
-		_E("failed to get wayland window");
-		evas_object_del(ret_win);
-		return WIDGET_ERROR_FAULT;
+		_E("failed to get wayland window"); /* LCOV_EXCL_LINE */
+		evas_object_del(ret_win); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_FAULT; /* LCOV_EXCL_LINE */
 	}
 
 	ecore_wl_window_class_name_set(wl_win, cxt->id);
@@ -1306,8 +1326,8 @@ widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 	widget_class_s *wc;
 
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		set_last_result(WIDGET_ERROR_NOT_SUPPORTED);
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		set_last_result(WIDGET_ERROR_NOT_SUPPORTED); /* LCOV_EXCL_LINE */
 		return NULL;
 	}
 
@@ -1318,9 +1338,9 @@ widget_class_h _widget_class_create(widget_class_s *prev, const char *class_id,
 
 	wc = (widget_class_s *)calloc(1, sizeof(widget_class_s));
 	if (wc == NULL) {
-		_E("failed to calloc : %s", __FUNCTION__);
-		set_last_result(WIDGET_ERROR_OUT_OF_MEMORY);
-		return NULL;
+		_E("failed to calloc : %s", __FUNCTION__); /* LCOV_EXCL_LINE */
+		set_last_result(WIDGET_ERROR_OUT_OF_MEMORY); /* LCOV_EXCL_LINE */
+		return NULL; /* LCOV_EXCL_LINE */
 	}
 
 	wc->classid = strdup(class_id);
@@ -1354,8 +1374,8 @@ EXPORT_API widget_class_h widget_app_class_create(
 EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 {
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (context == NULL)
@@ -1370,8 +1390,8 @@ EXPORT_API int widget_app_context_set_tag(widget_context_h context, void *tag)
 EXPORT_API int widget_app_context_get_tag(widget_context_h context, void **tag)
 {
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (context == NULL || tag == NULL)
@@ -1392,8 +1412,8 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context,
 	int len;
 
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (context == NULL || content_info == NULL)
@@ -1405,7 +1425,6 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context,
 				__FUNCTION__, NULL);
 
 	class_id = context->provider->classid;
-
 	if (class_id == NULL)
 		return widget_app_error(WIDGET_ERROR_FAULT, __FUNCTION__, NULL);
 
@@ -1422,10 +1441,12 @@ EXPORT_API int widget_app_context_set_content_info(widget_context_h context,
 		context->content = NULL;
 
 	if (ret < 0) {
+		/* LCOV_EXCL_START */
 		_E("failed to send content info: %s of %s (%d)", context->id,
 				class_id, ret);
 		return widget_app_error(WIDGET_ERROR_IO_ERROR, __FUNCTION__,
 				NULL);
+		/* LCOV_EXCL_STOP */
 	}
 
 	return WIDGET_ERROR_NONE;
@@ -1435,8 +1456,8 @@ EXPORT_API int widget_app_context_set_title(widget_context_h context,
 		const char *title)
 {
 	if (!_is_widget_feature_enabled()) {
-		_E("not supported");
-		return WIDGET_ERROR_NOT_SUPPORTED;
+		_E("not supported"); /* LCOV_EXCL_LINE */
+		return WIDGET_ERROR_NOT_SUPPORTED; /* LCOV_EXCL_LINE */
 	}
 
 	if (!context || !title)

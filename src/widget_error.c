@@ -37,33 +37,33 @@ static const char *widget_app_error_to_string(widget_error_e error)
 	case WIDGET_ERROR_INVALID_PARAMETER:
 		return "INVALID_PARAMETER";
 	case WIDGET_ERROR_OUT_OF_MEMORY:
-		return "OUT_OF_MEMORY";
+		return "OUT_OF_MEMORY"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_RESOURCE_BUSY:
-		return "RESOURCE_BUSY";
+		return "RESOURCE_BUSY"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_PERMISSION_DENIED:
-		return "PERMISSION_DENIED";
+		return "PERMISSION_DENIED"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_CANCELED:
-		return "CANCELED";
+		return "CANCELED"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_IO_ERROR:
-		return "IO_ERROR";
+		return "IO_ERROR"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_TIMED_OUT:
-		return "TIMED_OUT";
+		return "TIMED_OUT"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_NOT_SUPPORTED:
-		return "NOT_SUPPORTED";
+		return "NOT_SUPPORTED"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_FILE_NO_SPACE_ON_DEVICE:
-		return "FILE_NO_SPACE_ON_DEVICE";
+		return "FILE_NO_SPACE_ON_DEVICE"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_FAULT:
-		return "FAULT";
+		return "FAULT"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_ALREADY_EXIST:
-		return "ALREADY_EXIST";
+		return "ALREADY_EXIST"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_ALREADY_STARTED:
-		return "ALREADY_STARTED";
+		return "ALREADY_STARTED"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_NOT_EXIST:
-		return "NOT_EXIST";
+		return "NOT_EXIST"; /* LCOV_EXCL_LINE */
 	case WIDGET_ERROR_DISABLED:
-		return "DISABLED";
+		return "DISABLED"; /* LCOV_EXCL_LINE */
 	default:
-		return "UNKNOWN";
+		return "UNKNOWN"; /* LCOV_EXCL_LINE */
 	}
 }
 
