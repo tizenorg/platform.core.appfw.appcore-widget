@@ -92,7 +92,7 @@ static int __get_locale_resource_dir(char *locale_dir, int size)
 		return -1;
 	}
 
-	snprintf(locale_dir, size, "%s" PATH_LOCALE, res_path);
+	snprintf(locale_dir, size, "%s" res_path, PATH_LOCALE);
 	if (access(locale_dir, R_OK) != 0)
 		return -1;
 
