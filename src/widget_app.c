@@ -1114,6 +1114,10 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 		widget_app_lifecycle_callback_s *callback, void *user_data)
 {
 	int r;
+	int new_argc = 0;
+	char **new_argv = NULL;
+	unsigned char *extra_data;
+	bundle *b;
 
 	if (!_is_widget_feature_enabled()) {
 		_E("not supported"); /* LCOV_EXCL_LINE */
@@ -1132,13 +1136,38 @@ EXPORT_API int widget_app_main(int argc, char **argv,
 
 	app_ops = callback;
 	app_user_data = user_data;
-	r = __before_loop(argc, argv);
-	if (r < 0)
+
+	extra_data = aul_get_extra_data();
+	if (extra_data) {
+		b = bundle_decode((bundle_raw *)extra_data,
+				  strlen((const char *)extra_data));
+		if (b) {
+			new_argc = bundle_export_to_argv(b, &new_argv);
+			bundle_free(b);
+		}
+		free(extra_data);
+	}
+
+	if (new_argv) {
+		new_argv[0] = argv[0];
+	} else {
+		new_argc = argc;
+		new_argv = argv;
+	}
+
+	r = __before_loop(new_argc, new_argv);
+	if (r < 0) {
+		if (new_argc > 3)
+			bundle_free_exported_argv(new_argc, &new_argv);
 		return r;
+	}
 
 	ecore_main_loop_begin();
 	aul_status_update(STATUS_DYING);
 	__after_loop();
+
+	if (new_argc > 3)
+		bundle_free_exported_argv(new_argc, &new_argv);
 
 	return WIDGET_ERROR_NONE;
 }
