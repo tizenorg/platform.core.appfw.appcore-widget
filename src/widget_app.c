@@ -62,14 +62,6 @@ enum {
 	UPDATE_ALL = 1,
 };
 
-struct _widget_class {
-	void *user_data;
-	widget_instance_lifecycle_callback_s ops;
-	char *classid;
-	struct _widget_class *next;
-	struct _widget_class *prev;
-};
-
 struct app_event_handler {
 	app_event_type_e type;
 	app_event_cb cb;
@@ -81,19 +73,7 @@ struct app_event_info {
 	void *value;
 };
 
-struct _widget_context {
-	char *id;
-	struct _widget_class *provider;
-	int state;
-	void *tag;
-	Evas_Object *win;
-	int win_id;
-	char *content;
-	widget_instance_lifecycle_callback_s ops;
-};
-
 typedef struct _widget_class widget_class_s;
-typedef struct _widget_context widget_context_s;
 
 #define WIDGET_APP_EVENT_MAX 5
 static GList *handler_list[WIDGET_APP_EVENT_MAX] = {NULL, };
@@ -103,8 +83,6 @@ static widget_app_lifecycle_callback_s *app_ops;
 static void *app_user_data;
 static char *appid;
 static widget_class_h class_provider;
-static GList *contexts;
-static char *viewer_endpoint;
 static int exit_called;
 
 static void _widget_core_set_appcore_event_cb(void);
@@ -157,6 +135,7 @@ static gint __comp_by_id(gconstpointer a, gconstpointer b)
 static widget_context_s *__find_context_by_id(const char *id)
 {
 	GList *ret;
+	GList *contexts = _widget_app_get_contexts();
 
 	if (id == NULL)
 		return NULL;
@@ -178,6 +157,7 @@ static gint __comp_by_win(gconstpointer a, gconstpointer b)
 
 static widget_context_s *__find_context_by_win(int win)
 {
+	GList *contexts = _widget_app_get_contexts();
 	GList *ret = g_list_find_custom(contexts, GINT_TO_POINTER(win), __comp_by_win);
 
 	if (ret == NULL)
@@ -197,9 +177,9 @@ static int __send_lifecycle_event(const char *class_id, const char *instance_id,
 		return -1; /* LCOV_EXCL_LINE */
 	}
 
-	bundle_add_str(b, WIDGET_K_ID, class_id);
-	bundle_add_str(b, WIDGET_K_INSTANCE, instance_id);
-	bundle_add_byte(b, WIDGET_K_STATUS, &status, sizeof(int));
+	bundle_add_str(b, AUL_K_WIDGET_ID, class_id);
+	bundle_add_str(b, AUL_K_WIDGET_INSTANCE_ID, instance_id);
+	bundle_add_byte(b, AUL_K_WIDGET_STATUS, &status, sizeof(int));
 
 	_D("send lifecycle %s(%d)", instance_id, status);
 	ret = aul_app_com_send("widget.status", b);
@@ -218,6 +198,7 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 	int lifecycle = -1;
 	bundle_raw *raw = NULL;
 	int len;
+	char *viewer_endpoint = _widget_app_get_viewer_endpoint();
 
 	b = bundle_create();
 	if (!b) {
@@ -225,9 +206,9 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 		return -1; /* LCOV_EXCL_LINE */
 	}
 
-	bundle_add_str(b, WIDGET_K_ID, class_id);
-	bundle_add_str(b, WIDGET_K_INSTANCE, instance_id);
-	bundle_add_byte(b, WIDGET_K_STATUS, &status, sizeof(int));
+	bundle_add_str(b, AUL_K_WIDGET_ID, class_id);
+	bundle_add_str(b, AUL_K_WIDGET_INSTANCE_ID, instance_id);
+	bundle_add_byte(b, AUL_K_WIDGET_STATUS, &status, sizeof(int));
 
 	if (extra) {
 		bundle_encode(extra, &raw, &len);
@@ -359,7 +340,7 @@ static int __instance_update_all(widget_class_h handle, int force, const char *c
 	widget_context_s *wc;
 	int ret = 0;
 	bundle *b = NULL;
-	GList *context = contexts;
+	GList *context = _widget_app_get_contexts();
 
 	if (content)
 		b = bundle_decode((const bundle_raw *)content, strlen(content));
@@ -431,7 +412,7 @@ static int __instance_create(widget_class_h handle, const char *id, const char *
 		content_info = bundle_decode((const bundle_raw *)content, strlen(content));
 	}
 
-	contexts = g_list_append(contexts, wc);
+	_widget_app_add_context(wc);
 
 	ret = handle->ops.create(wc, content_info, w, h, handle->user_data);
 	if (ret < 0) {
@@ -459,6 +440,7 @@ static int __instance_destroy(widget_class_h handle, const char *id,
 	int ret = 0;
 	int event = WIDGET_INSTANCE_EVENT_TERMINATE;
 	bundle *content_info;
+
 
 	if (!wc) {
 		_E("could not find widget obj: %s", id); /* LCOV_EXCL_LINE */
@@ -488,7 +470,7 @@ static int __instance_destroy(widget_class_h handle, const char *id,
 
 	ret = __send_update_status(handle->classid, id, event, NULL);
 
-	contexts = g_list_remove(contexts, wc);
+	_widget_app_remove_context(wc);
 
 	if (wc->id)
 		free(wc->id);
@@ -498,7 +480,7 @@ static int __instance_destroy(widget_class_h handle, const char *id,
 
 	free(wc);
 
-	if (contexts == NULL && !exit_called) /* all instance destroyed */
+	if (_widget_app_get_contexts() == NULL && !exit_called) /* all instance destroyed */
 		widget_app_exit();
 
 	return ret;
@@ -559,7 +541,7 @@ static void __control(bundle *b)
 	if (class_id == NULL)
 		class_id = appid;
 
-	bundle_get_str(b, WIDGET_K_INSTANCE, &id);
+	bundle_get_str(b, AUL_K_WIDGET_INSTANCE_ID, &id);
 	bundle_get_str(b, WIDGET_K_OPERATION, &operation);
 
 	handle = __find_class_handler(class_id, class_provider);
@@ -617,6 +599,7 @@ error:
 
 static void __pause_all(int send_update)
 {
+	GList *contexts = _widget_app_get_contexts();
 	GList *iter = g_list_first(contexts);
 
 	while (iter != NULL) {
@@ -638,6 +621,7 @@ static void __pause_all(int send_update)
 /* LCOV_EXCL_START */
 static void __resume_all(int send_update)
 {
+	GList *contexts = _widget_app_get_contexts();
 	GList *iter = g_list_first(contexts);
 
 	while (iter != NULL) {
@@ -658,6 +642,7 @@ static void __resume_all(int send_update)
 
 static void __destroy_all(int reason, int send_update)
 {
+	GList *contexts = _widget_app_get_contexts();
 	GList *iter = g_list_first(contexts);
 
 	__pause_all(send_update);
@@ -849,6 +834,7 @@ static int __before_loop(int argc, char **argv)
 	char *wayland_display = NULL;
 	char *xdg_runtime_dir = NULL;
 	char *name;
+	char *viewer_endpoint;
 
 #if !(GLIB_CHECK_VERSION(2, 36, 0))
 	g_type_init();
@@ -861,7 +847,7 @@ static int __before_loop(int argc, char **argv)
 		bundle_get_str(kb, WIDGET_K_ENDPOINT, &viewer_endpoint);
 		if (viewer_endpoint) {
 			_E("viewer endpoint :%s", viewer_endpoint);
-			viewer_endpoint = strdup(viewer_endpoint);
+			_widget_app_set_viewer_endpoint(viewer_endpoint);
 		} else {
 			_E("endpoint is missing");
 		}
@@ -952,9 +938,7 @@ static void __after_loop()
 	if (app_ops->terminate)
 		app_ops->terminate(app_user_data);
 
-	if (viewer_endpoint)
-		free(viewer_endpoint);
-
+	_widget_app_free_viewer_endpoint();
 	_widget_core_unset_appcore_event_cb();
 	__free_handler_list();
 	elm_shutdown();
@@ -1202,6 +1186,7 @@ EXPORT_API int widget_app_terminate_context(widget_context_h context)
 
 EXPORT_API int widget_app_foreach_context(widget_context_cb cb, void *data)
 {
+	GList *contexts = _widget_app_get_contexts();
 	GList *list;
 	widget_context_s *wc;
 
@@ -1517,4 +1502,3 @@ EXPORT_API int widget_app_context_set_title(widget_context_h context,
 
 	return WIDGET_ERROR_NONE;
 }
-
