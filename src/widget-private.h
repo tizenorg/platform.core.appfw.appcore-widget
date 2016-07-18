@@ -24,6 +24,9 @@
 
 #define FEATURE_SHELL_APPWIDGET "http://tizen.org/feature/shell.appwidget"
 
+int _widget_app_set_viewer_endpoint(char *viewer_endpoint);
+char *_widget_app_get_viewer_endpoint();
+int _widget_app_free_viewer_endpoint();
 int _set_i18n(const char *domainname);
 void _update_lang(void);
 void _update_region(void);
