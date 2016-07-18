@@ -18,12 +18,42 @@
 #ifndef __APPCORE_WIDGET_PRIVATE_H__
 #define __APPCORE_WIDGET_PRIVATE_H__
 
+#include <glib.h>
+
+#include <Elementary.h>
 #include <widget_app.h>
 #include <app_common.h>
 #include <widget_errno.h>
 
 #define FEATURE_SHELL_APPWIDGET "http://tizen.org/feature/shell.appwidget"
 
+struct _widget_class {
+	void *user_data;
+	widget_instance_lifecycle_callback_s ops;
+	char *classid;
+	struct _widget_class *next;
+	struct _widget_class *prev;
+};
+
+struct _widget_context {
+	char *id;
+	struct _widget_class *provider;
+	int state;
+	void *tag;
+	Evas_Object *win;
+	int win_id;
+	char *content;
+	widget_instance_lifecycle_callback_s ops;
+};
+
+typedef struct _widget_context widget_context_s;
+
+GList *_widget_app_get_contexts();
+int _widget_app_add_context(widget_context_s *wc);
+int _widget_app_remove_context(widget_context_s *wc);
+int _widget_app_set_viewer_endpoint(char *viewer_endpoint);
+char *_widget_app_get_viewer_endpoint();
+int _widget_app_free_viewer_endpoint();
 int _set_i18n(const char *domainname);
 void _update_lang(void);
 void _update_region(void);
