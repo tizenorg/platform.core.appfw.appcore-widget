@@ -104,7 +104,6 @@ static void *app_user_data;
 static char *appid;
 static widget_class_h class_provider;
 static GList *contexts;
-static char *viewer_endpoint;
 static int exit_called;
 
 static void _widget_core_set_appcore_event_cb(void);
@@ -218,6 +217,7 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 	int lifecycle = -1;
 	bundle_raw *raw = NULL;
 	int len;
+	char *viewer_endpoint = widget_app_get_viewer_endpoint();
 
 	b = bundle_create();
 	if (!b) {
@@ -849,6 +849,7 @@ static int __before_loop(int argc, char **argv)
 	char *wayland_display = NULL;
 	char *xdg_runtime_dir = NULL;
 	char *name;
+	char *viewer_endpoint;
 
 #if !(GLIB_CHECK_VERSION(2, 36, 0))
 	g_type_init();
@@ -861,7 +862,7 @@ static int __before_loop(int argc, char **argv)
 		bundle_get_str(kb, WIDGET_K_ENDPOINT, &viewer_endpoint);
 		if (viewer_endpoint) {
 			_E("viewer endpoint :%s", viewer_endpoint);
-			viewer_endpoint = strdup(viewer_endpoint);
+			widget_app_set_viewer_endpoint(viewer_endpoint);
 		} else {
 			_E("endpoint is missing");
 		}
@@ -952,9 +953,7 @@ static void __after_loop()
 	if (app_ops->terminate)
 		app_ops->terminate(app_user_data);
 
-	if (viewer_endpoint)
-		free(viewer_endpoint);
-
+	widget_app_free_viewer_endpoint();
 	_widget_core_unset_appcore_event_cb();
 	__free_handler_list();
 	elm_shutdown();
@@ -1517,4 +1516,3 @@ EXPORT_API int widget_app_context_set_title(widget_context_h context,
 
 	return WIDGET_ERROR_NONE;
 }
-
