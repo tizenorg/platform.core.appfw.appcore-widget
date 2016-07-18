@@ -27,6 +27,7 @@ extern "C" {
  * For in-house applications
  *
  */
+
 typedef struct {
 	struct __pointer {
 		double x;
@@ -60,6 +61,10 @@ struct _widget_class_factory_full {
 };
 
 const widget_class_factory_full_s *widget_app_get_class_factory(void);
+int widget_app_restart();
+int widget_app_set_viewer_endpoint(char *viewer_endpoint);
+char *widget_app_get_viewer_endpoint();
+int widget_app_free_viewer_endpoint();
 
 #ifdef __cplusplus
 }
