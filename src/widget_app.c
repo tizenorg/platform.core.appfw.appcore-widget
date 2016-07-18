@@ -197,9 +197,9 @@ static int __send_lifecycle_event(const char *class_id, const char *instance_id,
 		return -1; /* LCOV_EXCL_LINE */
 	}
 
-	bundle_add_str(b, WIDGET_K_ID, class_id);
-	bundle_add_str(b, WIDGET_K_INSTANCE, instance_id);
-	bundle_add_byte(b, WIDGET_K_STATUS, &status, sizeof(int));
+	bundle_add_str(b, AUL_K_WIDGET_ID, class_id);
+	bundle_add_str(b, AUL_K_WIDGET_INSTANCE_ID, instance_id);
+	bundle_add_byte(b, AUL_K_WIDGET_STATUS, &status, sizeof(int));
 
 	_D("send lifecycle %s(%d)", instance_id, status);
 	ret = aul_app_com_send("widget.status", b);
@@ -225,9 +225,9 @@ static int __send_update_status(const char *class_id, const char *instance_id,
 		return -1; /* LCOV_EXCL_LINE */
 	}
 
-	bundle_add_str(b, WIDGET_K_ID, class_id);
-	bundle_add_str(b, WIDGET_K_INSTANCE, instance_id);
-	bundle_add_byte(b, WIDGET_K_STATUS, &status, sizeof(int));
+	bundle_add_str(b, AUL_K_WIDGET_ID, class_id);
+	bundle_add_str(b, AUL_K_WIDGET_INSTANCE_ID, instance_id);
+	bundle_add_byte(b, AUL_K_WIDGET_STATUS, &status, sizeof(int));
 
 	if (extra) {
 		bundle_encode(extra, &raw, &len);
@@ -559,7 +559,7 @@ static void __control(bundle *b)
 	if (class_id == NULL)
 		class_id = appid;
 
-	bundle_get_str(b, WIDGET_K_INSTANCE, &id);
+	bundle_get_str(b, AUL_K_WIDGET_INSTANCE_ID, &id);
 	bundle_get_str(b, WIDGET_K_OPERATION, &operation);
 
 	handle = __find_class_handler(class_id, class_provider);
