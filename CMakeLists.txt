@@ -25,6 +25,7 @@ SET(APPCORE_WIDGET "capi-appfw-widget-application")
 SET(SRCS_widget
 		src/widget-i18n.c
 		src/widget_app.c
+		src/widget_app_internal.c
 		src/widget_error.c
 		)
 SET(HEADERS_widget widget_app.h widget_app_efl.h widget_app_internal.h)
