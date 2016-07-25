@@ -750,6 +750,33 @@ static void __add_climsg()
 	ecore_event_handler_add(ECORE_WL_EVENT_WINDOW_CONFIGURE, __configure_cb, NULL);
 }
 
+static void __get_content(bundle *b)
+{
+	char *instance_id = NULL;
+	char *widget_id = NULL;
+	widget_context_s *cxt = NULL;
+
+	bundle_get_str(b, AUL_K_WIDGET_ID, &widget_id);
+	bundle_get_str(b, AUL_K_WIDGET_INSTANCE_ID, &instance_id);
+
+	if (!widget_id || !instance_id)
+		return;
+
+	cxt = __find_context_by_id(instance_id);
+	if (!cxt) {
+		_E("can not find instance id:%s", instance_id);
+		return;
+	}
+
+	if (cxt->content) {
+		bundle_add_str(b, AUL_K_WIDGET_CONTENT_INFO, cxt->content);
+		_D("content info of %s found", cxt->id);
+	} else {
+		bundle_add_str(b, AUL_K_WIDGET_CONTENT_INFO, "");
+		_D("empty content info added");
+	}
+}
+
 static int __aul_handler(aul_type type, bundle *b, void *data)
 {
 	char *caller = NULL;
@@ -775,6 +802,9 @@ static int __aul_handler(aul_type type, bundle *b, void *data)
 		break;
 	case AUL_TERMINATE:
 		widget_app_exit();
+		break;
+	case AUL_WIDGET_CONTENT:
+		__get_content(b);
 		break;
 	default:
 		break;
